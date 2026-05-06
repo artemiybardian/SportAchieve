@@ -5,21 +5,22 @@ SHELL := /bin/bash
 # Подстановка DB_*, YOOKASSA_*, VITE_* из backend-develop/.env
 COMPOSE := docker compose --env-file backend-develop/.env
 
-API_PORT := 8000
-PWA_PORT := 8080
+API_PORT := 8160
+PWA_PORT := 3160
+GATEWAY_PORT := 9190
 
 help:
 	@echo "Команды:"
 	@echo "  make dev                   — профиль dev: postgres, redis, backend, vite, celery (передний план)"
 	@echo "  make dev-d                 — то же в фоне (-d)"
-	@echo "  make prod                  — prod: backend (gunicorn) + PWA nginx :8080; без TMA"
-	@echo "  make prod-twa              — prod: весь стек + TMA nginx :8081 + PWA nginx :8080"
+	@echo "  make prod                  — prod: backend :8160 + PWA nginx :3160; без TMA"
+	@echo "  make prod-twa              — prod: весь стек + TMA nginx :3181 + PWA :3160 + gateway :9190"
 	@echo "  make down                  — остановить все сервисы (dev + prod)"
 	@echo "  make logs                  — compose logs -f"
 	@echo "  make ngrok                 — https-туннель на API ($(API_PORT))"
 	@echo "  make ngrok-backend         — то же, что ngrok ($(API_PORT))"
 	@echo "  make ngrok-pwa             — https-туннель на prod PWA nginx ($(PWA_PORT))"
-	@echo "  make ngrok-twa             — https-туннель на gateway :9000 (TMA + API через один URL)"
+	@echo "  make ngrok-twa             — https-туннель на gateway :$(GATEWAY_PORT) (TMA + API через один URL)"
 	@echo "  make yookassa-webhook-url — после запуска ngrok: URL для ЮKassa (…/api/yookasa/log)"
 	@echo "  make pwa-dev               — Vite dev-сервер для PWA (порт 5174)"
 	@echo "  make pwa-build             — production сборка PWA"
@@ -37,7 +38,7 @@ dev-d:
 prod:
 	$(COMPOSE) --profile prod up --build -d --scale frontend_prod=0
 
-# Полный prod: и PWA (:8080), и старый TMA (:8081)
+# Полный prod: PWA (:3160), TMA (:3181), gateway (:9190)
 prod-twa:
 	$(COMPOSE) --profile prod up --build -d
 
@@ -56,9 +57,9 @@ ngrok-backend:
 ngrok-pwa:
 	ngrok http $(PWA_PORT)
 
-# Туннель для Telegram Mini App: gateway на 9000 проксирует и TMA, и API
+# Туннель для Telegram Mini App: gateway проксирует и TMA, и API
 ngrok-twa:
-	ngrok http 9000
+	ngrok http $(GATEWAY_PORT)
 
 yookassa-webhook-url:
 	@python3 scripts/ngrok-yookassa-webhook-url.py

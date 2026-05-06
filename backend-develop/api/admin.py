@@ -182,7 +182,7 @@ class QRCodeAdmin(admin.ModelAdmin):
                 return mark_safe('<span style="color:#888">У тренажёра нет UUID (сохраните тренажёр после миграции).</span>')
 
             if obj.source == SourceType.SITE:
-                pwa_base = getattr(django_settings, 'PWA_BASE_URL', 'http://localhost:8080')
+                pwa_base = getattr(django_settings, 'PWA_BASE_URL', 'http://localhost:3160')
                 qr_data = f"{pwa_base.rstrip('/')}/exercise/machine/{tid}?gym={loc_id}"
             else:
                 telegram_bot_username = os.environ.get("TELEGRAM_BOT_USERNAME", "")
