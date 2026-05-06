@@ -1,0 +1,77 @@
+variables:
+  DOMAIN:
+    value: "sport-achieve.bitt.app"
+  DEPLOY_DIR: domains/$DOMAIN/django_project
+  PUBLIC_HTML: domains/$DOMAIN/public_html
+  SSH_PORT: 22
+  ARCHIVE_NAME: "deploy_v$CI_PIPELINE_IID.zip"
+  DOCKER_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+stages:
+    - build
+    - deploy
+
+dev-build:
+  stage: build
+  tags:
+    - "dind"
+  image: docker:24.0.7
+  services:
+      - name: docker:24.0.7-dind
+        alias: docker
+        command: [ "--tls=false" ]
+  only:
+    - develop
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_DRIVER: overlay2
+  before_script:
+    - echo $CI_JOB_TOKEN | docker login -u "gitlab-ci-token" --password-stdin $CI_REGISTRY
+  script:
+    - docker build -f deploy/dev/Dockerfile -t $DOCKER_IMAGE .
+    - docker push $DOCKER_IMAGE
+
+dev-deploy:
+  stage: deploy
+  image: alpine:latest
+  only:
+    - develop
+  before_script:
+    - apk add openssh-client
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$DEV_SSH_PRIVATE_KEY" | tr -d '\r')
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$DEV_KNOWN_HOSTS" > ~/.ssh/known_hosts
+  script:
+    - ssh -p $DEV_SSH_PORT $DEV_SSH_USER@$DEV_SSH_HOST "
+        docker pull $DOCKER_IMAGE &&
+        cd sport-achieve &&
+        docker compose down || true &&
+        docker compose up -d || true"
+
+sprinthost-deploy:
+  stage: deploy
+  image: python:3.10.17-alpine
+  only:
+    - main
+  before_script:
+    - apk add openssh-client tar
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY" | tr -d '\r')
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - cat $known_hosts_file >> ~/.ssh/known_hosts
+    - cat $ENV_FILE > .env
+    - tar --exclude='./venv' --exclude='./.git' --exclude='*.pyc' --exclude='__pycache__' -czf "$ARCHIVE_NAME" .env ./*
+  script:
+    - scp -P $SSH_PORT $ARCHIVE_NAME $SSH_USER@$SSH_HOST:/tmp/
+    - ssh -p $SSH_PORT $SSH_USER@$SSH_HOST "
+        rm -rf ~/$DEPLOY_DIR &&
+        mkdir -p ~/$DEPLOY_DIR &&
+        tar xzf /tmp/$ARCHIVE_NAME -C ~/$DEPLOY_DIR &&
+        chmod +x ~/$DEPLOY_DIR/deploy/sprinthost/init.sh && bash ~/$DEPLOY_DIR/deploy/sprinthost/init.sh ~/$DEPLOY_DIR &&
+        rm /tmp/$ARCHIVE_NAME
+      "
+    - scp -P $SSH_PORT deploy/sprinthost/.htaccess deploy/sprinthost/index.wsgi $SSH_USER@$SSH_HOST:/home/$SSH_USER/$PUBLIC_HTML

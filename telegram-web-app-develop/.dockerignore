@@ -1,0 +1,9 @@
+node_modules
+.pnpm-store
+.git
+.github
+.gitlab-ci.yml
+deploy/prod/Dockerfile
+deploy/dev/Dockerfile
+README.md
+LICENSE

@@ -1,0 +1,228 @@
+import os
+from pathlib import Path
+
+from main import empty_list, load_dotenv
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR)
+
+ENV = os.getenv
+
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = ENV("SECRET_KEY")
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = bool(ENV("DEBUG").lower() == "true")
+
+ALLOWED_HOSTS = ENV("ALLOWED_HOSTS", "*,").split(",")
+
+CORS_ALLOWED_ORIGINS = [
+    "http://0.0.0.0",
+    "http://127.0.0.1",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://0.0.0.0:3000",
+] + empty_list(ENV("CORS_ALLOWED_ORIGINS"))
+
+CORS_ORIGIN_WHITELIST = CORS_ALLOWED_ORIGINS
+
+# CORS_ALLOWED_ORIGINS + ngrok wildcards для локального тестирования
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS + [
+    "https://*.ngrok-free.app",
+    "https://*.ngrok.io",
+    "https://*.ngrok.app",
+]
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-token",
+]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+
+# Application definition
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "corsheaders",
+    "django_editorjs_fields",
+    "api",
+    "django_celery_beat",
+    "django_celery_results",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "logs.middleware.RequestLoggingMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "main.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "main.wsgi.application"
+
+
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+
+def _int_from_env(var: str, default: str) -> int:
+	try:
+		return int((ENV(var, default) or default).strip())
+	except ValueError:
+		return int(default)
+
+
+# Интервал жизни соединений к Postgres (сек). 0 — как раньше (закрывать после запроса).
+# Под gunicorn + Docker «первый запрос 500, второй ок» часто даёт уже мёртвое TCP-соединение к БД:
+# при CONN_MAX_AGE > 0 и CONN_HEALTH_CHECKS Django проверяет соединение перед использованием.
+_db_conn_max_age = max(0, _int_from_env("DB_CONN_MAX_AGE", "60"))
+
+DATABASES = {
+    "default": {
+        "ENGINE": ENV("DB_ENGINE"),
+        "NAME": ENV("DB_NAME"),
+        "USER": ENV("DB_USER"),
+        "PASSWORD": ENV("DB_PASSWORD"),
+        "HOST": ENV("DB_HOST"),
+        "PORT": ENV("DB_PORT"),
+        "CONN_MAX_AGE": _db_conn_max_age,
+        "CONN_HEALTH_CHECKS": _db_conn_max_age > 0,
+        **(
+            {
+                "OPTIONS": {
+                    # Таймаут установления TCP-соединения к Postgres (psycopg2)
+                    "connect_timeout": max(2, _int_from_env("DB_CONNECT_TIMEOUT", "10")),
+                }
+            }
+            if "postgresql" in ENV("DB_ENGINE", "")
+            else {}
+        ),
+    }
+}
+
+
+# Password validation
+# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
+
+
+# Internationalization
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
+
+LANGUAGE_CODE = ENV("LANGUAGE_CODE", "ru-RU")
+
+TIME_ZONE = ENV("TIME_ZONE", "Europe/Moscow")
+
+USE_I18N = True
+
+USE_TZ = True
+
+DEFAULT_CHARSET = "utf-8"
+
+CSRF_COOKIE_SECURE = True
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Media files
+MEDIA_URL = "/files/"
+MEDIA_ROOT = BASE_DIR / "files"
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_USER_MODEL = "api.TelegramUser"
+
+YOOKASSA_SHOP_ID = ENV("YOOKASSA_SHOP_ID")
+YOOKASSA_SECRET_KEY = ENV("YOOKASSA_SECRET_KEY")
+YOOKASSA_SECRET_PATH = ENV("YOOKASSA_SECRET_PATH", "")
+
+JWT_SECRET = ENV("JWT_SECRET")
+JWT_DURATION = int(ENV("JWT_DURATION", 86400))
+
+TELEGRAM_BOT_TOKEN = ENV("TELEGRAM_BOT_TOKEN")
+PWA_BASE_URL = ENV("PWA_BASE_URL")
+
+# Celery Settings
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+
+EDITORJS_DEFAULT_CONFIG_TOOLS = {
+    "Header": {
+        "class": "Header",
+        "inlineToolbar": True,
+        "config": {
+            "placeholder": "Enter a header",
+            "levels": [1, 2, 3, 4],
+            "defaultLevel": 2,
+        },
+    },
+    "List": {"class": "EditorjsList", "inlineToolbar": True},
+    "Delimiter": {"class": "Delimiter"},
+}
+EDITORJS_VERSION = "2.31.5"

@@ -1,0 +1,366 @@
+# SportAchieve — монорепо. Запуск:
+#   make dev    →  backend (8000) + PWA (5174) + TMA (5173) + postgres + redis + celery
+#   make prod   →  backend gunicorn (8000) + PWA nginx (8080) + TMA nginx (8081)
+#
+# Переменные: backend-develop/.env
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    profiles: [dev, prod]
+    environment:
+      POSTGRES_USER: ${DB_USER:-sportachieve}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sportachieve_dev_secret}
+      POSTGRES_DB: ${DB_NAME:-sportachieve}
+    ports:
+      - "${DB_EXPOSED_PORT:-5433}:5432"
+    volumes:
+      - sportachieve_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    profiles: [dev, prod]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    profiles: [dev]
+    build:
+      context: ./backend-develop
+      dockerfile: deploy/dev/Dockerfile
+    env_file:
+      - ./backend-develop/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend-develop:/app
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/app/deploy/dev/entrypoint.sh",
+          "exec-health",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health/ready/\", timeout=5).read()",
+        ]
+      interval: 15s
+      timeout: 8s
+      retries: 6
+      start_period: 50s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backend_prod:
+    profiles: [prod]
+    build:
+      context: ./backend-develop
+      dockerfile: deploy/prod/Dockerfile
+    env_file:
+      - ./backend-develop/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_media:/app/files
+    user: root
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        chown -R appuser:appuser /app/files &&
+        su appuser -c "
+          python manage.py collectstatic --noinput &&
+          exec gunicorn --bind 0.0.0.0:8000 --workers 3 main.wsgi:application
+        "
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/app/deploy/prod/entrypoint.sh",
+          "exec-health",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/health/ready/\", timeout=5).read()",
+        ]
+      interval: 15s
+      timeout: 8s
+      retries: 8
+      start_period: 120s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    profiles: [dev]
+    build:
+      context: ./telegram-web-app-develop
+      dockerfile: deploy/dev/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./telegram-web-app-develop:/app
+      - frontend_node_modules:/app/node_modules
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://127.0.0.1:5173/',(r)=>{process.exit((r.statusCode===200||r.statusCode===304)?0:1)}).on('error',()=>process.exit(1))\"",
+        ]
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 35s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  celery_worker:
+    profiles: [dev]
+    build:
+      context: ./backend-develop
+      dockerfile: deploy/dev/Dockerfile
+    env_file:
+      - ./backend-develop/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    volumes:
+      - ./backend-develop:/app
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A main inspect ping -t 12 | grep -q pong || exit 1",
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 4
+      start_period: 50s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    entrypoint: ["celery", "-A", "main", "worker", "--loglevel", "info"]
+
+  celery_beat:
+    profiles: [dev]
+    build:
+      context: ./backend-develop
+      dockerfile: deploy/dev/Dockerfile
+    env_file:
+      - ./backend-develop/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    volumes:
+      - ./backend-develop:/app
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A main inspect ping -t 12 | grep -q pong || exit 1",
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 4
+      start_period: 55s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery_worker:
+        condition: service_healthy
+    entrypoint: ["celery", "-A", "main", "beat", "--loglevel", "info"]
+
+  celery_worker_prod:
+    profiles: [prod]
+    build:
+      context: ./backend-develop
+      dockerfile: deploy/prod/Dockerfile
+    env_file:
+      - ./backend-develop/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    volumes:
+      - backend_media:/app/files
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A main inspect ping -t 12 | grep -q pong || exit 1",
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 4
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend_prod:
+        condition: service_healthy
+    entrypoint: ["celery", "-A", "main", "worker", "--loglevel", "info"]
+
+  celery_beat_prod:
+    profiles: [prod]
+    build:
+      context: ./backend-develop
+      dockerfile: deploy/prod/Dockerfile
+    env_file:
+      - ./backend-develop/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery_worker_prod:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A main inspect ping -t 12 | grep -q pong || exit 1",
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 4
+      start_period: 70s
+    entrypoint: ["celery", "-A", "main", "beat", "--loglevel", "info"]
+
+  frontend_prod:
+    profiles: [prod]
+    build:
+      context: ./telegram-web-app-develop
+      dockerfile: deploy/docker/Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+    ports:
+      - "8081:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    depends_on:
+      backend_prod:
+        condition: service_healthy
+
+  # Единый шлюз: /api/* → backend, /* → TMA. Туннелируй порт 9000 для Telegram.
+  gateway:
+    profiles: [prod]
+    image: nginx:stable-alpine
+    ports:
+      - "9000:80"
+    volumes:
+      - ./deploy/gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/__gateway_health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 15s
+    depends_on:
+      backend_prod:
+        condition: service_healthy
+      frontend_prod:
+        condition: service_healthy
+
+  pwa:
+    profiles: [dev]
+    build:
+      context: ./pwa
+      dockerfile: deploy/dev/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8000}
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./pwa:/app
+      - pwa_node_modules:/app/node_modules
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5174/ || exit 1"]
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 35s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  pwa_prod:
+    profiles: [prod]
+    build:
+      context: ./pwa
+      dockerfile: deploy/prod/Dockerfile
+      args:
+        # Empty BASE → all API calls use relative /api/... URLs, proxied by nginx above
+        VITE_API_BASE_URL: ""
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    depends_on:
+      backend_prod:
+        condition: service_healthy
+
+volumes:
+  sportachieve_pgdata:
+  frontend_node_modules:
+  pwa_node_modules:
+  backend_media:

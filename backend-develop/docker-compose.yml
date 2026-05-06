@@ -1,0 +1,23 @@
+# Устарело: полный стек (Postgres + Redis + API + frontend) см. корень монорепо:
+# ../../docker-compose.yml и команда «make dev» / «make prod».
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sportachieve-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - sportachieve_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sportachieve_pgdata:

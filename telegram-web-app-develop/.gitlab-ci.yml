@@ -1,0 +1,141 @@
+variables:
+  PNPM_HOME: "${CI_PROJECT_DIR}/.pnpm-store"
+
+cache:
+  key:
+    files:
+      - pnpm-lock.yaml
+    prefix: "node_modules-files"
+  paths:
+    - .pnpm-store/
+    - node_modules/
+  policy: pull
+
+stages:
+  - test
+  - build
+  - docker-build
+  - deploy
+
+.node_modules-job:
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+      prefix: "node_modules-files"
+    paths:
+      - .pnpm-store/
+      - node_modules/
+    policy: pull-push
+
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@9 --activate
+    - pnpm config set store-dir "$PNPM_HOME"
+    - |
+      if [ ! -d node_modules ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
+        echo "[DEBUG_LOG] Cache is empty. Running pnpm install..."
+        pnpm install --frozen-lockfile
+      else
+        echo "[DEBUG_LOG] Using node_modules from cache."
+      fi
+
+lint:
+  image: node:20
+  stage: test
+  extends: .node_modules-job
+  script:
+    - pnpm run lint
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+build:
+  image: node:20
+  stage: build
+  extends: .node_modules-job
+  script:
+    - pnpm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+  only:
+    - main
+
+docker-build-dev:
+  tags:
+    - dind
+  stage: docker-build
+  image: docker:24.0.7
+  services:
+    - name: docker:24.0.7-dind
+      alias: docker
+      command: [ "--tls=false" ]
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_DRIVER: overlay2
+    image_tag: $CI_REGISTRY_IMAGE/dev:build_try_$CI_PIPELINE_IID
+    image_tag_latest: $CI_REGISTRY_IMAGE/dev:latest
+  before_script:
+    - echo $CI_JOB_TOKEN | docker login -u "gitlab-ci-token" --password-stdin $CI_REGISTRY
+    - cat $DEV_ENVFILE > .env
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:build_dockerfile\r\e[0KBuild docker image"
+    - docker build -t $image_tag -t $image_tag_latest -f deploy/dev/Dockerfile .
+    - echo -e "\e[0Ksection_end:`date +%s`:build_dockerfile\r\e[0K"
+    - echo -e "\e[0Ksection_start:`date +%s`:push_dockerfile\r\e[0KPush docker image"
+    - docker push $image_tag && docker push $image_tag_latest
+    - echo -e "\e[0Ksection_end:`date +%s`:push_dockerfile\r\e[0K"
+  only:
+    - develop
+
+deploy-dev-job:
+  stage: deploy
+  image: alpine:latest
+  needs: ["docker-build-dev"]
+  only:
+    - develop
+  variables:
+    image_tag_latest: $CI_REGISTRY_IMAGE/dev:latest
+  before_script:
+    - apk add openssh-client
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$DEV_SSH_PRIVATE_KEY" | tr -d '\r')
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$DEV_KNOWN_HOSTS" > ~/.ssh/known_hosts
+  script:
+    - ssh -p $DEV_SSH_PORT $DEV_SSH_USER@$DEV_SSH_HOST "
+      docker pull $image_tag_latest &&
+      cd sport-achieve &&
+      docker compose down || true &&
+      docker compose up -d || true"
+
+docker-build-prod:
+  tags:
+    - dind
+  stage: docker-build
+  needs: ["build"]
+  image: docker:24.0.7
+  services:
+    - name: docker:24.0.7-dind
+      alias: docker
+      command: [ "--tls=false" ]
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_DRIVER: overlay2
+    image_tag: $CI_REGISTRY_IMAGE:build_try_$CI_PIPELINE_IID
+    image_tag_latest: $CI_REGISTRY_IMAGE:latest
+  before_script:
+    - echo $CI_JOB_TOKEN | docker login -u "gitlab-ci-token" --password-stdin $CI_REGISTRY
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:build_dockerfile\r\e[0KBuild docker image"
+    - docker build -t $image_tag -t $image_tag_latest -f deploy/prod/Dockerfile .
+    - echo -e "\e[0Ksection_end:`date +%s`:build_dockerfile\r\e[0K"
+    - echo -e "\e[0Ksection_start:`date +%s`:push_dockerfile\r\e[0KPush docker image"
+    - docker push $image_tag && docker push $image_tag_latest
+    - echo -e "\e[0Ksection_end:`date +%s`:push_dockerfile\r\e[0K"
+  only:
+    - main

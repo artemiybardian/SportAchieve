@@ -1,0 +1,27 @@
+@font-face {
+  font-family: "Codec Cold Logo";
+  src: url("https://storage.yandexcloud.net/bit-static/fonts/codec/CodecColdLogo-Regular.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Codec Cold Logo";
+  src: url("https://storage.yandexcloud.net/bit-static/fonts/codec/CodecColdLogo-Bold.woff") format("woff");
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: url("https://storage.yandexcloud.net/bit-static/fonts/San_Francisco_Pro_Display/SF-Pro-Display-Regular.otf") format("otf");
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  /*background: var(--tg-theme-secondary-bg-color, white);*/
+  background: #fff;
+  padding: 0;
+  margin: 0;
+}

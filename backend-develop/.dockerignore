@@ -1,0 +1,9 @@
+.git
+.idea
+__pycache__
+__pycache__/*
+.venv
+venv
+db.sqlite3
+*.log
+.env

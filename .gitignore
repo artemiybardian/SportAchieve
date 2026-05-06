@@ -1,0 +1,46 @@
+# Dependencies
+**/node_modules/
+
+# Builds & caches
+**/dist/
+**/dist-ssr/
+**/.vite/
+**/.turbo/
+**/.cache/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.hypothesis/
+**/.venv/
+**/venv/
+*.egg-info/
+.eggs/
+pip-log.txt
+
+# Django / runtime data (not source)
+backend-develop/files/
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS & editors
+.DS_Store
+Thumbs.db
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local overrides (keep .env tracked per project policy)
+*.local
+
+# Secrets / keys (paths only; .env is tracked)
+*.pem
