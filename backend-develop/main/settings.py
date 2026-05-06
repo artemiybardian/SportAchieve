@@ -17,7 +17,7 @@ ENV = os.getenv
 SECRET_KEY = ENV("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(ENV("DEBUG").lower() == "true")
+DEBUG = bool((ENV("DEBUG") or "false").lower() == "true")
 
 ALLOWED_HOSTS = ENV("ALLOWED_HOSTS", "*,").split(",")
 
