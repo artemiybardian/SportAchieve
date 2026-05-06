@@ -28,6 +28,9 @@ backend-develop/files/
 # Logs
 *.log
 logs/
+# Исключение: пакет Django (middleware), не каталог логов
+!backend-develop/logs/
+!backend-develop/logs/**
 
 # OS & editors
 .DS_Store
