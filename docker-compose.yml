@@ -3,6 +3,9 @@
 #   make prod   →  backend :8160→8000 + PWA nginx :3160→80 + TMA nginx :3181→80 + gateway :9190→80
 #
 # Переменные: backend-develop/.env
+# На части VPS (ufw/nftables) рвётся TCP между контейнерами к postgres:5432 при этом
+# healthcheck у Postgres проходит. Обход: хост → проброшенный DB_EXPOSED_PORT (см. .env).
+# Требуется docker compose v2 + host-gateway; иначе на сервере поправьте FORWARD/ufw.
 
 services:
   postgres:
@@ -43,9 +46,11 @@ services:
       dockerfile: deploy/dev/Dockerfile
     env_file:
       - ./backend-develop/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
+      DB_HOST: host.docker.internal
+      DB_PORT: "${DB_EXPOSED_PORT:-5433}"
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     ports:
@@ -79,9 +84,11 @@ services:
       dockerfile: deploy/prod/Dockerfile
     env_file:
       - ./backend-develop/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
+      DB_HOST: host.docker.internal
+      DB_PORT: "${DB_EXPOSED_PORT:-5433}"
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     ports:
@@ -145,9 +152,11 @@ services:
       dockerfile: deploy/dev/Dockerfile
     env_file:
       - ./backend-develop/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
+      DB_HOST: host.docker.internal
+      DB_PORT: "${DB_EXPOSED_PORT:-5433}"
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
@@ -178,9 +187,11 @@ services:
       dockerfile: deploy/dev/Dockerfile
     env_file:
       - ./backend-develop/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
+      DB_HOST: host.docker.internal
+      DB_PORT: "${DB_EXPOSED_PORT:-5433}"
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
@@ -211,9 +222,11 @@ services:
       dockerfile: deploy/prod/Dockerfile
     env_file:
       - ./backend-develop/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
+      DB_HOST: host.docker.internal
+      DB_PORT: "${DB_EXPOSED_PORT:-5433}"
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
@@ -244,9 +257,11 @@ services:
       dockerfile: deploy/prod/Dockerfile
     env_file:
       - ./backend-develop/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: postgres
-      DB_PORT: "5432"
+      DB_HOST: host.docker.internal
+      DB_PORT: "${DB_EXPOSED_PORT:-5433}"
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     depends_on:
