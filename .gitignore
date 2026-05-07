@@ -31,6 +31,8 @@ logs/
 # Исключение: пакет Django (middleware), не каталог логов
 !backend-develop/logs/
 !backend-develop/logs/**
+# После !.../** снова скрываем bytecode (иначе negation перекрывает **/__pycache__/)
+backend-develop/logs/**/__pycache__/
 
 # OS & editors
 .DS_Store
