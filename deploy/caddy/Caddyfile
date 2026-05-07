@@ -1,0 +1,15 @@
+# Публичный HTTPS-фронт для make prod (PWA + API в одном домене).
+# Переменные из compose: PUBLIC_DOMAIN, ACME_EMAIL (опционально, для Let's Encrypt).
+
+{$PUBLIC_DOMAIN} {
+    encode gzip zstd
+
+    @backend path /api* /admin* /files* /static* /media* /v1*
+    handle @backend {
+        reverse_proxy backend_prod:8000
+    }
+
+    handle {
+        reverse_proxy pwa_prod:80
+    }
+}

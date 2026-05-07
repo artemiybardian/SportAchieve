@@ -1,6 +1,7 @@
 # SportAchieve — монорепо. Запуск:
 #   make dev    →  backend :8160→8000 + PWA :3160→5174 + TMA :3173→5173 + postgres :5433 + redis :6390 + celery
-#   make prod   →  backend :8160→8000 + PWA nginx :3160→80 + TMA nginx :3181→80 + gateway :9190→80
+#   make prod   →  + Caddy :80,:443 или на хосте с nginx: make prod-nginx
+#   make prod-twa →  + TMA :3181 + gateway :9190
 #
 # Переменные: backend-develop/.env
 # БД из контейнеров: по умолчанию DB_HOST=postgres, DB_PORT=5432 (общая docker-сеть sportachieve).
@@ -313,6 +314,43 @@ services:
         condition: service_healthy
     networks: [sportachieve]
 
+  # HTTPS (Let's Encrypt) + один домен для PWA+API при make prod. Требует PUBLIC_DOMAIN и открытые 80/443.
+  # make prod добавляет --profile caddy. Для prod-twa профиль caddy не включать (TMA через gateway :9190).
+  caddy:
+    profiles: [caddy]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-sportachieve.duckdns.org}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend_prod:
+        condition: service_healthy
+      pwa_prod:
+        condition: service_healthy
+    networks: [sportachieve]
+
+  # Обновление IP в DuckDNS (опционально). Задайте DUCKDNS_TOKEN и при необходимости DUCKDNS_SUBDOMAINS.
+  duckdns:
+    profiles: [duckdns]
+    image: lscr.io/linuxserver/duckdns:latest
+    restart: unless-stopped
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: ${TZ:-UTC}
+      SUBDOMAINS: ${DUCKDNS_SUBDOMAINS:-sportachieve}
+      TOKEN: ${DUCKDNS_TOKEN:-}
+      LOG_FILE: "true"
+    networks: [sportachieve]
+
   # Единый шлюз: /api/* → backend, /* → TMA. Туннелируй :9190 для Telegram (9000 часто целевой для других стеков).
   gateway:
     profiles: [prod]
@@ -390,3 +428,5 @@ volumes:
   frontend_node_modules:
   pwa_node_modules:
   backend_media:
+  caddy_data:
+  caddy_config:

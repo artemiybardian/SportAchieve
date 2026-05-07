@@ -29,14 +29,27 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+        /** Иначе навигация на Django (/admin, /api/...) отдаётся как SPA index.html (см. SW в DevTools) */
+        navigateFallbackDenylist: [
+          /^\/api(\/|$)/,
+          /^\/admin(\/|$)/,
+          /^\/files(\/|$)/,
+          /^\/static(\/|$)/,
+          /^\/media(\/|$)/,
+          /^\/v1(\/|$)/,
+          /^\/editorjs(\/|$)/,
+          /^\/health(\/|$)/,
+        ],
         runtimeCaching: [
           {
             urlPattern: /^https?:\/\/.*\/api\/(auth|user|trainers|exercises|invoices|subscriptions)/,
             handler: 'NetworkOnly',
           },
           {
-            /** Обновление shell без зависания на устаревшем index.html из кеша */
-            urlPattern: ({ request }) => request.mode === 'navigate',
+            /** Только маршруты SPA — не перехватывать бэкенд в браузере */
+            urlPattern: ({ request, url }) =>
+              request.mode === 'navigate' &&
+              !/^\/(api|admin|files|static|media|v1|editorjs|health)(\/|$)/.test(url.pathname),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'spa-pages',
