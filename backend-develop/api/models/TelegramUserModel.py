@@ -7,6 +7,9 @@ from api.models.SourceType import SourceType
 class TelegramUser(AbstractUser):
     profile_photo = models.URLField(max_length=1024, blank=True, null=True, verbose_name='Фото профиля')
     is_onboarding_complete = models.BooleanField(default=False, verbose_name='Онбординг пройден')
+    vk_id = models.BigIntegerField(
+        unique=True, null=True, blank=True, db_index=True, verbose_name='VK ID'
+    )
     source = models.CharField(
         max_length=20,
         choices=SourceType.choices,

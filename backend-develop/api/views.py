@@ -45,6 +45,7 @@ from api.services.UserService import UserService
 from api import user_messages as UM
 from main.utils import build_absolute_uri
 from telegram.TelegramValidation import TelegramValidation
+from vk.VKValidation import VKValidation
 from yookasa.YookasaClient import YookasaClient
 import logging
 
@@ -70,6 +71,9 @@ def global_exception_handler(request, exc):
 tg_app_data_validation = TelegramValidation(
 	telegram_bot_token=settings.TELEGRAM_BOT_TOKEN
 )
+vk_validation = VKValidation(
+	client_secret=settings.VK_CLIENT_SECRET
+)
 user_service = UserService()
 jwt_service = JWTService(
 	secret=getattr(settings, "JWT_SECRET"),
@@ -88,6 +92,15 @@ class JWTAuthorization(HttpBearer):
 		if jwt_service.is_valid(token):
 			return token
 		return None
+
+
+@api.post("/token/vk", response={200: TokenResponse, 400: MessageResponse}, tags=["Authorization"])
+def get_token_by_vk(request, launch_params: str):
+	vk_user = vk_validation.validate(launch_params)
+	if vk_user is None:
+		return 400, MessageResponse(message=UM.VK_INIT_INVALID)
+	user = user_service.save_if_not_exist_vk(vk_user)
+	return 200, TokenResponse(token=jwt_service.issue(payload={"user_id": user.id}))
 
 
 @api.post("/token/telegram", response={200: TokenResponse, 400: MessageResponse}, tags=["Authorization"])

@@ -1,0 +1,16 @@
+# Два HTTPS-туннеля — только ДЕВ: Vite VK (5175) + Django (8160).
+# ПРОД: make ngrok-vk-prod (один туннель на vk_prod :3162, этот файл не нужен).
+# Требуется: ngrok authtoken в глобальном конфиге (~/.config/ngrok/ngrok.yml и т.п.).
+# Запуск: make ngrok-vk-local → make vk-ngrok-hint
+#
+# Если `ngrok start` не находит файл — обновите ngrok CLI или объедините этот файл
+# с основным конфигом: ngrok start vk api --config ~/.config/ngrok/ngrok.yml --config ngrok.vk-local.yml
+
+version: "2"
+tunnels:
+  vk:
+    addr: 5175
+    proto: http
+  api:
+    addr: 8160
+    proto: http

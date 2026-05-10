@@ -1,0 +1,40 @@
+{
+  "name": "@sportachieve/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api/client.ts",
+    "./store": "./src/store/index.ts",
+    "./features/*": "./src/features/*",
+    "./hooks/*": "./src/hooks/*",
+    "./lib/*": "./src/lib/*",
+    "./services/*": "./src/services/*",
+    "./components/*": "./src/components/*",
+    "./providers/*": "./src/providers/*",
+    "./pages/*": "./src/pages/*",
+    "./styles": "./src/index.css"
+  },
+  "peerDependencies": {
+    "@radix-ui/react-dialog": "*",
+    "@radix-ui/react-dropdown-menu": "*",
+    "@radix-ui/react-label": "*",
+    "@radix-ui/react-separator": "*",
+    "@radix-ui/react-slot": "*",
+    "@radix-ui/react-tabs": "*",
+    "@radix-ui/react-toast": "*",
+    "@reduxjs/toolkit": "*",
+    "@sentry/react": "*",
+    "@tanstack/react-query": "*",
+    "class-variance-authority": "*",
+    "clsx": "*",
+    "lucide-react": "*",
+    "react": "*",
+    "react-dom": "*",
+    "react-redux": "*",
+    "react-router-dom": "*",
+    "tailwind-merge": "*",
+    "zod": "*"
+  }
+}

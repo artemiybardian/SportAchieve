@@ -375,7 +375,7 @@ services:
   pwa:
     profiles: [dev]
     build:
-      context: ./pwa
+      context: ./apps/pwa
       dockerfile: deploy/dev/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8160}
@@ -384,7 +384,7 @@ services:
     ports:
       - "3160:5174"
     volumes:
-      - ./pwa:/app
+      - ./apps/pwa:/app
       - pwa_node_modules:/app/node_modules
     healthcheck:
       test:
@@ -398,11 +398,53 @@ services:
         condition: service_healthy
     networks: [sportachieve]
 
+  vk:
+    profiles: [dev]
+    build:
+      context: .
+      dockerfile: deploy/vk/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8160}
+        VITE_VK_APP_ID: ${VK_APP_ID:-}
+    ports:
+      - "3162:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [sportachieve]
+
+  vk_prod:
+    profiles: [prod]
+    build:
+      context: .
+      dockerfile: deploy/vk/Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_VK_APP_ID: ${VK_APP_ID:-}
+    ports:
+      - "3162:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    depends_on:
+      backend_prod:
+        condition: service_healthy
+    networks: [sportachieve]
+
   pwa_prod:
     profiles: [prod]
     build:
-      context: ./pwa
-      dockerfile: deploy/prod/Dockerfile
+      context: .
+      dockerfile: deploy/pwa/Dockerfile
       args:
         # Empty BASE → all API calls use relative /api/... URLs, proxied by nginx above
         VITE_API_BASE_URL: ""
@@ -430,3 +472,4 @@ volumes:
   backend_media:
   caddy_data:
   caddy_config:
+  vk_node_modules:

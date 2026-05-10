@@ -1,0 +1,17 @@
+{
+  "name": "sportachieve",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:pwa": "npm run dev --workspace=apps/pwa",
+    "dev:vk": "npm run dev --workspace=apps/vk",
+    "build:pwa": "npm run build --workspace=apps/pwa",
+    "build:vk": "npm run build --workspace=apps/vk"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

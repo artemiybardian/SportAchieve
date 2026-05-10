@@ -5,6 +5,7 @@ from django.utils.timezone import now
 from api.models.SourceType import SourceType
 from main.utils import get_logger
 from telegram.typed_dict import TelegramUser as TelegramUserDict
+from vk.typed_dict import VKUser as VKUserDict
 
 User = get_user_model()
 
@@ -43,6 +44,23 @@ class UserService:
 		user.last_login = now()
 		user.save(update_fields=["last_login"])
 		return user
+
+	def save_if_not_exist_vk(self, vk_user: VKUserDict) -> User:
+		vk_user_id = vk_user["vk_user_id"]
+		db_user, created = User.objects.get_or_create(
+			vk_id=vk_user_id,
+			defaults={
+				"username": f"vk_{vk_user_id}",
+				"last_login": now(),
+				"source": SourceType.VK,
+			}
+		)
+		if not created:
+			db_user.last_login = now()
+			db_user.save(update_fields=["last_login"])
+		else:
+			self.logger.debug(f"User created from VK ({vk_user_id})")
+		return db_user
 
 	def save_if_not_exist(self, user: TelegramUserDict) -> User:
 		username = user.get("username") or f"user_{user['id']}"
