@@ -184,6 +184,20 @@ class QRCodeAdmin(admin.ModelAdmin):
             if obj.source == SourceType.SITE:
                 pwa_base = getattr(django_settings, 'PWA_BASE_URL', 'http://localhost:3160')
                 qr_data = f"{pwa_base.rstrip('/')}/exercise/machine/{tid}?gym={loc_id}"
+            elif obj.source == SourceType.VK:
+                # Клиент ВК + статичный токен в hash: не меняется, пока те же uuid тренажёра и зал.
+                # Разбор на бэкенде: GET /api/public/vk-qr/{token}
+                from api.vk_qr_token import compute_vk_qr_token
+                vk_app_id = getattr(django_settings, 'VK_APP_ID', '') or os.environ.get('VK_APP_ID', '')
+                vk_token = compute_vk_qr_token(str(tid), int(loc_id))
+                qr_data = f"https://vk.com/app{vk_app_id}#{vk_token}"
+            elif obj.source == SourceType.MAX:
+                # MAX Mini App: глубокая ссылка со статичным токеном в start_param.
+                # Разбор на бэкенде: GET /api/public/max-qr/{token}
+                from api.max_qr_token import compute_max_qr_token
+                max_bot_username = getattr(django_settings, 'MAX_BOT_USERNAME', '') or os.environ.get('MAX_BOT_USERNAME', '')
+                max_token = compute_max_qr_token(str(tid), int(loc_id))
+                qr_data = f"https://max.ru/{max_bot_username}?startapp={max_token}"
             else:
                 telegram_bot_username = os.environ.get("TELEGRAM_BOT_USERNAME", "")
                 qr_data = (

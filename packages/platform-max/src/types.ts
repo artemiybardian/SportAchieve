@@ -1,4 +1,4 @@
-// Shared Platform interface — re-exported by platform-pwa, platform-vk, and platform-max.
+// Shared Platform interface — extended to include 'max'.
 export interface Platform {
   name: 'pwa' | 'vk' | 'max';
   init(): Promise<void>;

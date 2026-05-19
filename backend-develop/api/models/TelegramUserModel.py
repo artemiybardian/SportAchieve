@@ -10,6 +10,9 @@ class TelegramUser(AbstractUser):
     vk_id = models.BigIntegerField(
         unique=True, null=True, blank=True, db_index=True, verbose_name='VK ID'
     )
+    max_id = models.BigIntegerField(
+        unique=True, null=True, blank=True, db_index=True, verbose_name='MAX ID'
+    )
     source = models.CharField(
         max_length=20,
         choices=SourceType.choices,

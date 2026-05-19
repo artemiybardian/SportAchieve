@@ -1,6 +1,7 @@
 # SportAchieve — монорепо. Запуск:
 #   make dev    →  backend :8160→8000 + PWA :3160→5174 + TMA :3173→5173 + postgres :5433 + redis :6390 + celery
-#   make prod   →  + Caddy :80,:443 или на хосте с nginx: make prod-nginx
+#   make prod   →  backend + PWA :3160 + VK :3162 (без TMA; HTTPS — system nginx, см. deploy/nginx-host/)
+#   make prod-caddy → то же + Caddy на :80/:443 (два домена в Caddyfile)
 #   make prod-twa →  + TMA :3181 + gateway :9190
 #
 # Переменные: backend-develop/.env
@@ -326,6 +327,7 @@ services:
       - "443:443/udp"
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-sportachieve.duckdns.org}
+      PUBLIC_DOMAIN_VK: ${PUBLIC_DOMAIN_VK:-sportachieve-vk.duckdns.org}
     volumes:
       - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -334,6 +336,8 @@ services:
       backend_prod:
         condition: service_healthy
       pwa_prod:
+        condition: service_healthy
+      vk_prod:
         condition: service_healthy
     networks: [sportachieve]
 
@@ -419,6 +423,27 @@ services:
         condition: service_healthy
     networks: [sportachieve]
 
+  max:
+    profiles: [dev]
+    build:
+      context: .
+      dockerfile: deploy/max/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8160}
+        VITE_MAX_APP_BASE_URL: ${MAX_APP_BASE_URL:-}
+    ports:
+      - "3163:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [sportachieve]
+
   vk_prod:
     profiles: [prod]
     build:
@@ -429,6 +454,27 @@ services:
         VITE_VK_APP_ID: ${VK_APP_ID:-}
     ports:
       - "3162:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    depends_on:
+      backend_prod:
+        condition: service_healthy
+    networks: [sportachieve]
+
+  max_prod:
+    profiles: [prod]
+    build:
+      context: .
+      dockerfile: deploy/max/Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_MAX_APP_BASE_URL: ${MAX_APP_BASE_URL:-}
+    ports:
+      - "3163:80"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
       interval: 15s

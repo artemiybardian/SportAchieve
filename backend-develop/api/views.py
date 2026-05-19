@@ -34,16 +34,23 @@ from api.schemas.event_log import EventLogSchema, EventLogCreateSchema
 from api.schemas.event_type import EventTypeSchema
 from api.schemas.invoice import InvoiceSchema, InvoiceCreateSchema, UserInvoice
 from api.schemas.invoice_type import InvoiceTypeSchema
+from api.schemas.max_profile import MaxProfileSyncSchema
+from api.schemas.max_qr import MaxQrResolveSchema
 from api.schemas.trainer import TrainerSchema
 from api.schemas.exercise import ExerciseSchema, ExerciseCardSchema
 from api.schemas.subscription import SubscriptionSchema
 from api.schemas.response import MessageResponse, TokenResponse
+from api.schemas.vk_qr import VkQrResolveSchema
+from api.max_qr_token import lookup_max_qr_trainer_gym
+from api.vk_qr_token import lookup_vk_qr_trainer_gym
 from api.schemas.user import UserSchema
+from api.schemas.vk_profile import VkProfileSyncSchema
 from api.services.ExerciseAccessService import ExerciseAccessService
 from api.services.JWTService import JWTService
 from api.services.UserService import UserService
 from api import user_messages as UM
 from main.utils import build_absolute_uri
+from max.MaxValidation import MaxValidation
 from telegram.TelegramValidation import TelegramValidation
 from vk.VKValidation import VKValidation
 from yookasa.YookasaClient import YookasaClient
@@ -74,6 +81,9 @@ tg_app_data_validation = TelegramValidation(
 vk_validation = VKValidation(
 	client_secret=settings.VK_CLIENT_SECRET
 )
+max_validation = MaxValidation(
+	bot_token=getattr(settings, "MAX_BOT_TOKEN", "") or ""
+)
 user_service = UserService()
 jwt_service = JWTService(
 	secret=getattr(settings, "JWT_SECRET"),
@@ -94,6 +104,20 @@ class JWTAuthorization(HttpBearer):
 		return None
 
 
+@api.get(
+	"/public/vk-qr/{token}",
+	response={200: VkQrResolveSchema, 404: MessageResponse},
+	tags=["Public"],
+)
+def resolve_vk_qr_by_token(request, token: str):
+	"""Разбор статичного фрагмента из QR `vk.com/app…#token` (HMAC от uuid тренажёра и id зала)."""
+	row = lookup_vk_qr_trainer_gym(token)
+	if row is None:
+		return 404, MessageResponse(message=UM.VK_QR_UNKNOWN)
+	trainer_uuid, gym_id = row
+	return VkQrResolveSchema(trainer_uuid=trainer_uuid, gym_id=gym_id)
+
+
 @api.post("/token/vk", response={200: TokenResponse, 400: MessageResponse}, tags=["Authorization"])
 def get_token_by_vk(request, launch_params: str):
 	vk_user = vk_validation.validate(launch_params)
@@ -101,6 +125,52 @@ def get_token_by_vk(request, launch_params: str):
 		return 400, MessageResponse(message=UM.VK_INIT_INVALID)
 	user = user_service.save_if_not_exist_vk(vk_user)
 	return 200, TokenResponse(token=jwt_service.issue(payload={"user_id": user.id}))
+
+
+@api.get(
+	"/public/max-qr/{token}",
+	response={200: MaxQrResolveSchema, 404: MessageResponse},
+	tags=["Public"],
+)
+def resolve_max_qr_by_token(request, token: str):
+	"""Разбор статичного токена из QR `max.ru/{bot}?startapp={token}` (HMAC от uuid тренажёра и id зала)."""
+	row = lookup_max_qr_trainer_gym(token)
+	if row is None:
+		return 404, MessageResponse(message=UM.MAX_QR_UNKNOWN)
+	trainer_uuid, gym_id = row
+	return MaxQrResolveSchema(trainer_uuid=trainer_uuid, gym_id=gym_id)
+
+
+@api.post("/token/max", response={200: TokenResponse, 400: MessageResponse}, tags=["Authorization"])
+def get_token_by_max(request, init_data: str):
+	max_user = max_validation.validate(init_data)
+	if max_user is None:
+		return 400, MessageResponse(message=UM.MAX_INIT_INVALID)
+	user = user_service.save_if_not_exist_max(max_user)
+	return 200, TokenResponse(token=jwt_service.issue(payload={"user_id": user.id}))
+
+
+@api.patch(
+	"/user/max-profile",
+	response={200: MessageResponse, 401: MessageResponse, 403: MessageResponse},
+	tags=["Authorization"],
+	auth=JWTAuthorization(),
+)
+def sync_max_profile(request, payload: MaxProfileSyncSchema):
+	user_id = jwt_service.body(token=request.auth).get("user_id")
+	user = TelegramUser.objects.filter(id=user_id).first()
+	if user is None:
+		return 401, MessageResponse(message=UM.USER_PROFILE_MISSING)
+	try:
+		user_service.apply_max_bridge_profile(
+			user,
+			first_name=payload.first_name,
+			last_name=payload.last_name,
+			profile_photo=payload.profile_photo,
+		)
+	except ValueError:
+		return 403, MessageResponse(message=UM.FORBIDDEN)
+	return 200, MessageResponse(message=UM.MAX_PROFILE_SYNCED)
 
 
 @api.post("/token/telegram", response={200: TokenResponse, 400: MessageResponse}, tags=["Authorization"])
@@ -159,6 +229,7 @@ def me(request):
 	auth=JWTAuthorization(),
 )
 def complete_onboarding(request):
+	"""Сохранить в БД, что пользователь завершил вводный тур (`is_onboarding_complete=True`)."""
 	user_id = jwt_service.body(token=request.auth).get("user_id")
 	user = TelegramUser.objects.filter(id=user_id).first()
 	if user is None:
@@ -166,6 +237,23 @@ def complete_onboarding(request):
 	user.is_onboarding_complete = True
 	user.save(update_fields=["is_onboarding_complete"])
 	return 200, MessageResponse(message=UM.ONBOARDING_SAVED)
+
+
+@api.post(
+	"/onboarding/reset",
+	response={200: MessageResponse, 401: MessageResponse},
+	tags=["Onboarding"],
+	auth=JWTAuthorization(),
+)
+def reset_onboarding(request):
+	"""Сбросить флаг в БД — снова показывать онбординг, пока пользователь не пройдёт его."""
+	user_id = jwt_service.body(token=request.auth).get("user_id")
+	user = TelegramUser.objects.filter(id=user_id).first()
+	if user is None:
+		return 401, MessageResponse(message=UM.USER_PROFILE_MISSING)
+	user.is_onboarding_complete = False
+	user.save(update_fields=["is_onboarding_complete"])
+	return 200, MessageResponse(message=UM.ONBOARDING_RESET)
 
 
 @api.get(
@@ -188,6 +276,32 @@ def get_user(request):
 		first_name=user.first_name,
 		is_onboarding_complete=user.is_onboarding_complete,
 	)
+
+
+@api.patch(
+	"/user/vk-profile",
+	response={200: MessageResponse, 401: MessageResponse, 403: MessageResponse},
+	tags=["User"],
+	auth=JWTAuthorization(),
+)
+def sync_vk_profile(request, payload: VkProfileSyncSchema):
+	"""Имя, фамилия и фото из VK Bridge (VKWebAppGetUserInfo) для мини-приложения."""
+	user_id = jwt_service.body(token=request.auth).get("user_id")
+	user = TelegramUser.objects.filter(id=user_id).first()
+	if user is None:
+		return 401, MessageResponse(message=UM.USER_PROFILE_MISSING)
+	if user.vk_id is None:
+		return 403, MessageResponse(message=UM.FORBIDDEN)
+	try:
+		user_service.apply_vk_bridge_profile(
+			user,
+			first_name=payload.first_name,
+			last_name=payload.last_name,
+			profile_photo=payload.profile_photo,
+		)
+	except ValueError:
+		return 403, MessageResponse(message=UM.FORBIDDEN)
+	return 200, MessageResponse(message=UM.VK_PROFILE_SYNCED)
 
 
 @api.get("/events/types", response=List[EventTypeSchema], tags=["Events"], auth=JWTAuthorization())
@@ -228,7 +342,7 @@ def list_trainers(request, instruction_type: Optional[ExerciseInstructionType] =
 
 
 # Без auth: по QR с телефона открывают до логина — карточка тренажёра должна быть публичной
-@api.get("/trainers/{trainer_uuid}", response={200: TrainerSchema, 404: MessageResponse}, tags=["Trainers"], auth=JWTAuthorization())
+@api.get("/trainers/{trainer_uuid}", response={200: TrainerSchema, 404: MessageResponse}, tags=["Trainers"])
 def get_trainer(request, trainer_uuid: str, instruction_type: Optional[ExerciseInstructionType] = None):
 	trainer = TrainerModel.objects.filter(uuid=trainer_uuid).first()
 	if not trainer:

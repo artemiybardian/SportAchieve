@@ -1,11 +1,18 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useInvoiceTypes } from '@/features/exercises/api/use-exercises';
 import { AnalyticsLogger } from '@/services/AnalyticsLogger';
 import { useToast } from '@/hooks/use-toast';
 import { SubscriptionService, InvoiceCreateSchema } from '@/api/generated';
-import { buildSubscriptionReturnUrl, buildVkSubscriptionReturnUrl } from '@/lib/subscription-return-url';
+import {
+  buildMaxSubscriptionReturnUrl,
+  buildSubscriptionReturnUrl,
+  buildVkSubscriptionReturnUrl,
+} from '@/lib/subscription-return-url';
+import { setMaxPaymentPendingRoute } from '@/lib/max-payment-pending-route';
+import { setVkPaymentPendingRoute } from '@/lib/vk-payment-pending-route';
 import { userFriendlyApiError } from '@/lib/utils';
 import { usePlatformOptional } from '@/providers/PlatformProvider';
 
@@ -20,6 +27,7 @@ export function SubscriptionSheet({ open, onOpenChange }: SubscriptionSheetProps
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const { toast } = useToast();
   const platform = usePlatformOptional();
+  const location = useLocation();
 
   const selectedPlan = invoiceTypes.find((p) => p.id === selectedPlanId) ?? invoiceTypes[0];
 
@@ -29,17 +37,37 @@ export function SubscriptionSheet({ open, onOpenChange }: SubscriptionSheetProps
     void AnalyticsLogger.logPaymentAttempt(selectedPlan.id, InvoiceCreateSchema.payment_method.BANK_CARD);
     setCheckoutLoading(true);
     try {
-      const isVk = platform?.name === 'vk';
+      const pathWithSearch = `${location.pathname}${location.search || ''}`;
+      let returnUrl: string;
+      if (platform?.name === 'vk') {
+        returnUrl = buildVkSubscriptionReturnUrl({ returnPath: pathWithSearch });
+      } else if (platform?.name === 'max') {
+        returnUrl = buildMaxSubscriptionReturnUrl({ returnPath: pathWithSearch });
+      } else {
+        returnUrl = buildSubscriptionReturnUrl(selectedPlan.id);
+      }
       const response = await SubscriptionService.apiViewsSubscribe({
         subscription_type_id: selectedPlan.id,
         payment_method: InvoiceCreateSchema.payment_method.BANK_CARD,
-        return_url: isVk
-          ? buildVkSubscriptionReturnUrl()
-          : buildSubscriptionReturnUrl(selectedPlan.id),
+        return_url: returnUrl,
       });
       if (response.confirmation_url) {
         if (platform) {
-          await platform.openExternalUrl(response.confirmation_url);
+          if (platform.name === 'vk') {
+            const pending = setVkPaymentPendingRoute(pathWithSearch);
+            if (pending) platform.persistPrePaymentRoute?.(pending);
+          } else if (platform.name === 'max') {
+            const pending = setMaxPaymentPendingRoute(pathWithSearch);
+            if (pending) platform.persistPrePaymentRoute?.(pending);
+          }
+          // Mini app (VK / MAX): открытие оплаты в браузере — fire-and-forget, иначе кнопка «залипает».
+          void platform.openExternalUrl(response.confirmation_url).catch(() => {
+            toast({
+              variant: 'destructive',
+              title: 'Не удалось открыть оплату',
+              description: 'Разрешите открытие ссылки в браузере или попробуйте позже.',
+            });
+          });
         } else {
           window.location.href = response.confirmation_url;
         }

@@ -95,7 +95,36 @@ export function createVkPlatform(): Platform {
     },
 
     async openExternalUrl(url: string) {
-      await bridge.send('VKWebAppOpenURL', { url });
+      // Android/iOS: if `VKWebAppOpenURL` is not wired in the native bridge, `send` is a no-op
+      // and the promise never resolves — YooKassa never opens. In-app navigation is reliable
+      // (YooKassa blocks iframe embedding; full WebView navigation is OK).
+      if (bridge.isWebView()) {
+        window.location.assign(url);
+        return;
+      }
+
+      // m.vk.ru / desktop: try delegated open via parent; fall back to same-tab navigation.
+      const sendOpenUrl = bridge.send as (
+        method: string,
+        props?: object,
+      ) => ReturnType<typeof bridge.send>;
+
+      let openedViaBridge = false;
+      try {
+        const raced = await Promise.race([
+          sendOpenUrl('VKWebAppOpenURL', { url }).then(() => 'ok' as const),
+          new Promise<'timeout'>((resolve) => {
+            setTimeout(() => resolve('timeout'), 3500);
+          }),
+        ]);
+        openedViaBridge = raced === 'ok';
+      } catch {
+        openedViaBridge = false;
+      }
+
+      if (!openedViaBridge) {
+        window.location.assign(url);
+      }
     },
 
     getTheme() {
@@ -109,6 +138,24 @@ export function createVkPlatform(): Platform {
 
     closeApp() {
       void bridge.send('VKWebAppClose', { status: 'success' });
+    },
+
+    /**
+     * Дублируем путь в облако VK — после редиректа на ЮKassa localStorage iframe иногда пустеет.
+     * Формат JSON: { path, ts } — как в localStorage (см. vk-payment-pending-route).
+     */
+    persistPrePaymentRoute(sanitizedPathWithSearch: string) {
+      if (!sanitizedPathWithSearch.startsWith('/')) return;
+      try {
+        const payload = JSON.stringify({ path: sanitizedPathWithSearch, ts: Date.now() });
+        // Ключ строкой — тот же, что VK_PAYMENT_PENDING_LS_KEY в shared.
+        void bridge.send('VKWebAppStorageSet', {
+          key: 'sa_vk_payment_pending_route',
+          value: payload,
+        });
+      } catch {
+        /* ignore */
+      }
     },
   };
 }

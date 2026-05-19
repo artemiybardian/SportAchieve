@@ -8,8 +8,10 @@
   "scripts": {
     "dev:pwa": "npm run dev --workspace=apps/pwa",
     "dev:vk": "npm run dev --workspace=apps/vk",
+    "dev:max": "npm run dev --workspace=apps/max",
     "build:pwa": "npm run build --workspace=apps/pwa",
-    "build:vk": "npm run build --workspace=apps/vk"
+    "build:vk": "npm run build --workspace=apps/vk",
+    "build:max": "npm run build --workspace=apps/max"
   },
   "devDependencies": {
     "typescript": "^5.6.3"

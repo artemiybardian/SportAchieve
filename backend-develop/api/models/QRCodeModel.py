@@ -22,13 +22,9 @@ class QRCodeModel(models.Model):
 		on_delete=models.CASCADE,
 		verbose_name='Тренажёр',
 	)
-	# Платформа, для которой создан QR-код (vk / max — добавим позже)
 	source = models.CharField(
 		max_length=20,
-		choices=[
-			(SourceType.TELEGRAM, SourceType.TELEGRAM.label),
-			(SourceType.SITE, SourceType.SITE.label),
-		],
+		choices=SourceType.choices,
 		default=SourceType.SITE,
 		verbose_name='Платформа',
 	)

@@ -1,10 +1,11 @@
 export interface Platform {
-  name: 'pwa' | 'vk';
+  name: 'pwa' | 'vk' | 'max';
   init(): Promise<void>;
   openExternalUrl(url: string): Promise<void>;
   getTheme(): 'light' | 'dark';
   onThemeChange(callback: (theme: 'light' | 'dark') => void): () => void;
   closeApp(): void;
+  persistPrePaymentRoute?(sanitizedPathWithSearch: string): void;
 }
 // Note: this interface is structurally identical to the one in @sportachieve/shared/providers/PlatformProvider.
 // TypeScript structural typing ensures they are compatible — no runtime dependency needed.
