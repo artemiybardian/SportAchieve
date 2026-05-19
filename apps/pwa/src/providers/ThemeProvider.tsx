@@ -1,13 +1,27 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 type Theme = 'light' | 'dark';
 
 interface ThemeContextValue {
   theme: Theme;
   toggle: () => void;
+  /** Временно зафиксировать тему (например, шаги онбординга); null — снять блокировку. */
+  setThemeOverride: (theme: Theme | null) => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue>({ theme: 'light', toggle: () => {} });
+const ThemeContext = createContext<ThemeContextValue>({
+  theme: 'light',
+  toggle: () => {},
+  setThemeOverride: () => {},
+});
 
 const STORAGE_KEY = 'sa_theme';
 
@@ -27,6 +41,14 @@ function getInitialTheme(): Theme {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const themeOverrideRef = useRef<Theme | null>(null);
+
+  const setThemeOverride = useCallback((override: Theme | null) => {
+    themeOverrideRef.current = override;
+    if (override !== null) {
+      setTheme(override);
+    }
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -44,7 +66,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const toggle = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'));
 
-  return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ theme, toggle, setThemeOverride }}>{children}</ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {

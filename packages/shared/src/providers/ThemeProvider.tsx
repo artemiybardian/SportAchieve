@@ -31,11 +31,17 @@ function markUserPicked(): void {
 interface ThemeContextValue {
   theme: Theme;
   toggle: () => void;
+  /** Временно зафиксировать тему (например, шаги онбординга); null — снять блокировку. */
+  setThemeOverride: (theme: Theme | null) => void;
   /** Только VK Mini App: применить схему клиента ВК, пока пользователь не нажал «тема» вручную. */
   applyVkClientScheme?: (isDark: boolean) => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue>({ theme: 'light', toggle: () => {} });
+const ThemeContext = createContext<ThemeContextValue>({
+  theme: 'light',
+  toggle: () => {},
+  setThemeOverride: () => {},
+});
 
 const STORAGE_KEY = 'sa_theme';
 
@@ -62,9 +68,17 @@ export function ThemeProvider({
 }) {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const userPickedRef = useRef(readUserPicked());
+  const themeOverrideRef = useRef<Theme | null>(null);
+
+  const setThemeOverride = useCallback((override: Theme | null) => {
+    themeOverrideRef.current = override;
+    if (override !== null) {
+      setTheme(override);
+    }
+  }, []);
 
   const applyVkClientScheme = useCallback((isDark: boolean) => {
-    if (userPickedRef.current || readUserPicked()) return;
+    if (userPickedRef.current || readUserPicked() || themeOverrideRef.current !== null) return;
     setTheme(isDark ? 'dark' : 'light');
   }, []);
 
@@ -89,8 +103,8 @@ export function ThemeProvider({
   };
 
   const value: ThemeContextValue = vkClientSchemeSync
-    ? { theme, toggle, applyVkClientScheme }
-    : { theme, toggle };
+    ? { theme, toggle, setThemeOverride, applyVkClientScheme }
+    : { theme, toggle, setThemeOverride };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

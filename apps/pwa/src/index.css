@@ -261,6 +261,24 @@
   transform: scale(0.97);
 }
 
+/* Smooth theme transition for onboarding step switch */
+.theme-fade,
+.theme-fade * {
+  transition:
+    background-color 240ms ease,
+    color 240ms ease,
+    border-color 240ms ease,
+    fill 240ms ease,
+    stroke 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-fade,
+  .theme-fade * {
+    transition: none;
+  }
+}
+
 /* Brand-specific gradient header bg */
 .header-gradient {
   background: linear-gradient(135deg, hsl(var(--brand-navy)) 0%, hsl(238 50% 30%) 100%);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { peekLastBrowsePath } from '@/lib/last-browse-path';
 import { AnalyticsLogger } from '@/services/AnalyticsLogger';
 import { cn } from '@/lib/utils';
 import { BrandLogo } from '@/features/onboarding/components/BrandLogo';
+import { useTheme } from '@/providers/ThemeProvider';
 import onboardingNfc from '@/assets/onboarding-nfc.png';
 import onboardingSubscriptions from '@/assets/onboarding-two.png';
 
@@ -25,7 +26,7 @@ interface Step {
 
 const steps: Step[] = [
   {
-    icon: <BrandLogo variant="onDark" />,
+    icon: <BrandLogo />,
     title: 'Добро пожаловать в SportAchieve!',
     description: 'Приложение помогает быстро разобраться с упражнениями на тренажерах в зале.',
     buttonText: 'Далее',
@@ -60,6 +61,7 @@ const steps: Step[] = [
 
 export function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(0);
+  const { setThemeOverride } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -68,6 +70,11 @@ export function OnboardingPage() {
   const completeOnboarding = useCompleteOnboarding();
 
   const step = steps[currentStep];
+
+  useEffect(() => {
+    setThemeOverride(currentStep === 0 ? 'light' : 'dark');
+    return () => setThemeOverride(null);
+  }, [currentStep, setThemeOverride]);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -97,35 +104,27 @@ export function OnboardingPage() {
   return (
     <div
       className={cn(
-        'page-transition header-gradient fixed inset-0 z-10 flex w-full max-w-[100vw] flex-col overflow-hidden overscroll-none',
+        'theme-fade page-transition flex max-h-[100dvh] h-[100dvh] flex-col overflow-hidden overscroll-none bg-background',
+        'pt-[max(0.25rem,env(safe-area-inset-top,0px))]',
+        'pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]',
       )}
-      style={{
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingLeft: 'env(safe-area-inset-left, 0px)',
-        paddingRight: 'env(safe-area-inset-right, 0px)',
-      }}
     >
-      <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto overflow-x-hidden px-6 pt-2 sm:px-8 sm:gap-6">
-        <div className="flex w-full max-w-md min-h-0 flex-shrink-0 flex-col items-center justify-center py-2">
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6">
+        <div className="flex max-h-[min(280px,46vh)] w-full min-h-0 shrink-0 flex-col items-center justify-center">
           {step.icon}
         </div>
 
         <div
-          className="w-full max-w-md shrink-0 space-y-3 px-1 text-center"
+          className="w-full max-w-xs shrink-0 space-y-2 px-1 text-center"
           key={currentStep}
           style={{ animation: 'fadeIn 0.35s ease-out' }}
         >
-          <h2 className="text-xl font-bold leading-snug text-white sm:text-2xl">{step.title}</h2>
-          <p className="text-sm leading-relaxed text-white/85 sm:text-base">{step.description}</p>
+          <h2 className="text-2xl font-bold leading-tight text-foreground">{step.title}</h2>
+          <p className="text-base leading-relaxed text-muted-foreground">{step.description}</p>
         </div>
       </main>
 
-      <footer
-        className="flex w-full shrink-0 flex-col items-center gap-4 border-t border-white/15 bg-black/10 px-6 pt-4 backdrop-blur-sm"
-        style={{
-          paddingBottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))',
-        }}
-      >
+      <footer className="flex w-full shrink-0 flex-col items-center gap-4 px-6 pt-2">
         <div className="flex gap-2">
           {steps.map((_, i) => (
             <div
@@ -136,8 +135,8 @@ export function OnboardingPage() {
                 height: 8,
                 backgroundColor:
                   i === currentStep
-                    ? 'hsl(var(--brand-cyan))'
-                    : 'hsl(0 0% 100% / 0.28)',
+                    ? 'hsl(var(--primary))'
+                    : 'hsl(var(--muted-foreground) / 0.3)',
               }}
             />
           ))}
