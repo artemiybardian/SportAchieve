@@ -4,9 +4,17 @@ import '@/index.css';
 import App from './App';
 import { store } from '@/store';
 import { initApiClient, setApiToken } from '@/api/client';
-import { setToken } from '@/store/slices/authSlice';
+import { setToken, logout } from '@/store/slices/authSlice';
+import { queryClient, registerSessionGuard } from '@/lib/query-client';
 import { createMaxPlatform } from '@sportachieve/platform-max';
 import { getRawMaxInitData } from './maxLaunchParams';
+
+registerSessionGuard(() => {
+  if (!store.getState().auth.isAuthenticated) return;
+  setApiToken(undefined);
+  store.dispatch(logout());
+  queryClient.clear();
+});
 
 const platform = createMaxPlatform();
 

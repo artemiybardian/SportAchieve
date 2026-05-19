@@ -8,6 +8,7 @@ import type { ApiResult } from './ApiResult';
 import { CancelablePromise } from './CancelablePromise';
 import type { OnCancel } from './CancelablePromise';
 import type { OpenAPIConfig } from './OpenAPI';
+import { API_REQUEST_TIMEOUT_MS } from '@/lib/unauthorized';
 
 export const isDefined = <T>(value: T | null | undefined): value is Exclude<T, null | undefined> => {
     return value !== undefined && value !== null;
@@ -202,6 +203,7 @@ export const sendRequest = async (
     onCancel: OnCancel
 ): Promise<Response> => {
     const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
 
     const request: RequestInit = {
         headers,
@@ -214,9 +216,16 @@ export const sendRequest = async (
         request.credentials = config.CREDENTIALS;
     }
 
-    onCancel(() => controller.abort());
+    onCancel(() => {
+        window.clearTimeout(timeoutId);
+        controller.abort();
+    });
 
-    return await fetch(url, request);
+    try {
+        return await fetch(url, request);
+    } finally {
+        window.clearTimeout(timeoutId);
+    }
 };
 
 export const getResponseHeader = (response: Response, responseHeader?: string): string | undefined => {
