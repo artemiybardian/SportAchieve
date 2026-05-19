@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { useSubscription, useCancelSubscription } from '@/features/user/api/use-user';
 import { useToast } from '@/hooks/use-toast';
 import { userFriendlyApiError } from '@/lib/utils';
+import { getSubscriptionBadgeDisplay } from '@/lib/subscription-display';
 
 interface UserSubscriptionSheetProps {
   open: boolean;
@@ -14,12 +15,16 @@ export function UserSubscriptionSheet({ open, onOpenChange }: UserSubscriptionSh
   const { data: subscription } = useSubscription();
   const cancelSubscription = useCancelSubscription();
   const { toast } = useToast();
+  const subBadge = subscription ? getSubscriptionBadgeDisplay(subscription) : null;
 
   const handleCancel = () => {
     if (!subscription) return;
     cancelSubscription.mutate(subscription.id, {
       onSuccess: () => {
-        toast({ title: 'Подписка отменена' });
+        toast({
+          title: 'Подписка отменена',
+          description: 'Автопродление отключено. Доступ сохраняется до конца оплаченного периода.',
+        });
         onOpenChange(false);
       },
       onError: (err) => {
@@ -45,15 +50,22 @@ export function UserSubscriptionSheet({ open, onOpenChange }: UserSubscriptionSh
             <div className="border rounded-2xl p-4 flex justify-between items-center">
               <div>
                 <p className="font-semibold">{subscription.type.name}</p>
-                <Badge variant={subscription.is_valid ? 'success' : 'secondary'} className="mt-1">
-                  {subscription.is_valid ? 'Активна' : 'Неактивна'}
-                </Badge>
+                {subBadge ? (
+                  <Badge variant={subBadge.variant} className="mt-1">
+                    {subBadge.label}
+                  </Badge>
+                ) : null}
               </div>
               <p className="text-muted-foreground text-sm">{subscription.type.access_duration_in_days} дней</p>
             </div>
+            {subscription.canceled_at && subscription.is_valid ? (
+              <p className="text-xs text-center text-muted-foreground leading-relaxed">
+                Автопродление отключено. Доступ по этой подписке действует до конца уже оплаченного периода.
+              </p>
+            ) : null}
             {subscription.canceled_at && (
               <p className="text-xs text-center text-muted-foreground">
-                Отменена: {new Date(subscription.canceled_at).toLocaleDateString('ru-RU')}
+                Дата отмены: {new Date(subscription.canceled_at).toLocaleDateString('ru-RU')}
               </p>
             )}
             {subscription.is_enabled && !subscription.canceled_at && (

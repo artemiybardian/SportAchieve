@@ -7,6 +7,7 @@ import { initApiClient, setApiToken } from '@/api/client';
 import { setToken } from '@/store/slices/authSlice';
 import { createVkPlatform } from '@sportachieve/platform-vk';
 import { getRawVkLaunchParams } from './vkLaunchParams';
+import { hydrateVkPaymentPendingFromHost, setupVkPaymentPendingHostSync } from './vkHydratePaymentPending';
 
 const platform = createVkPlatform();
 
@@ -15,6 +16,8 @@ const TOKEN_FETCH_MS = 15000;
 async function bootstrap() {
   // Initialise the VK bridge first — must be called synchronously before any renders.
   await platform.init();
+  setupVkPaymentPendingHostSync();
+  await hydrateVkPaymentPendingFromHost();
 
   // Initialise API client with any previously-stored token.
   initApiClient(store.getState().auth.token);

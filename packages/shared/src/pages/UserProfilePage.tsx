@@ -6,24 +6,29 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { UserSubscriptionSheet } from '@/features/subscriptions/components/UserSubscriptionSheet';
-import { useUser } from '@/features/user/api/use-user';
+import { useUser, useResetOnboarding } from '@/features/user/api/use-user';
 import { useLogout } from '@/features/auth/api/use-auth';
 import { AnalyticsLogger } from '@/services/AnalyticsLogger';
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { peekLastBrowsePath } from '@/lib/last-browse-path';
+import { getSubscriptionBadgeDisplay } from '@/lib/subscription-display';
 
 interface MenuItemProps {
   icon: React.ReactNode;
   iconBg: string;
   label: string;
-  onClick?: () => void;
+  onClick?: () => void | Promise<void>;
   danger?: boolean;
+  disabled?: boolean;
 }
 
-function MenuItem({ icon, iconBg, label, onClick, danger }: MenuItemProps) {
+function MenuItem({ icon, iconBg, label, onClick, danger, disabled }: MenuItemProps) {
   return (
     <button
-      className={`w-full flex items-center gap-4 py-4 px-3 hover:bg-accent/60 rounded-xl transition-colors btn-press text-left ${
+      type="button"
+      disabled={disabled}
+      className={`w-full flex items-center gap-4 py-4 px-3 hover:bg-accent/60 rounded-xl transition-colors btn-press text-left disabled:pointer-events-none disabled:opacity-50 ${
         danger ? 'text-destructive' : 'text-foreground'
       }`}
       onClick={onClick}
@@ -42,10 +47,12 @@ function MenuItem({ icon, iconBg, label, onClick, danger }: MenuItemProps) {
 
 export function UserProfilePage() {
   const { me, subscription, fullName, avatarUrl, daysLeft } = useUser();
+  const subBadge = subscription ? getSubscriptionBadgeDisplay(subscription) : null;
   const [subSheetOpen, setSubSheetOpen] = useState(false);
   const navigate = useNavigate();
   const handleLogout = useLogout();
   const { toast } = useToast();
+  const resetOnboarding = useResetOnboarding();
 
   useEffect(() => {
     void AnalyticsLogger.logUserProfileView();
@@ -86,8 +93,8 @@ export function UserProfilePage() {
           >
             <div>
               <p className="font-semibold text-foreground">Подписка</p>
-              <Badge variant={subscription.is_valid ? 'success' : 'secondary'} className="mt-1.5">
-                {subscription.is_valid ? 'Активна' : 'Неактивна'}
+              <Badge variant={subBadge?.variant ?? 'secondary'} className="mt-1.5">
+                {subBadge?.label ?? '—'}
               </Badge>
             </div>
             <div className="flex items-center gap-1 text-muted-foreground">
@@ -127,7 +134,21 @@ export function UserProfilePage() {
             icon={<RotateCcw className="h-5 w-5 text-white" />}
             iconBg="hsl(var(--muted-foreground) / 0.5)"
             label="Повторить онбординг"
-            onClick={() => navigate('/onboarding')}
+            disabled={resetOnboarding.isPending}
+            onClick={async () => {
+              const back = peekLastBrowsePath() ?? '/exercise/machine';
+              try {
+                await resetOnboarding.mutateAsync();
+              } catch {
+                toast({
+                  title: 'Не удалось сбросить онбординг',
+                  description: 'Проверьте сеть и попробуйте снова.',
+                  variant: 'destructive',
+                });
+                return;
+              }
+              navigate(`/onboarding?next=${encodeURIComponent(back)}`);
+            }}
           />
         </div>
       </div>

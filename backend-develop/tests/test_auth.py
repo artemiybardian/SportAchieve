@@ -9,6 +9,7 @@ REGISTER_URL = '/api/auth/register'
 LOGIN_URL = '/api/auth/login'
 ME_URL = '/api/auth/me'
 ONBOARDING_COMPLETE_URL = '/api/onboarding/complete'
+ONBOARDING_RESET_URL = '/api/onboarding/reset'
 
 
 @pytest.fixture
@@ -149,6 +150,17 @@ class TestOnboardingComplete:
         client.post(ONBOARDING_COMPLETE_URL, HTTP_AUTHORIZATION=f'Bearer {token}')
         resp = client.post(ONBOARDING_COMPLETE_URL, HTTP_AUTHORIZATION=f'Bearer {token}')
         assert resp.status_code == 200
+
+    def test_reset_onboarding_clears_flag(self, client):
+        token = self._register_and_token(client)
+        client.post(ONBOARDING_COMPLETE_URL, HTTP_AUTHORIZATION=f'Bearer {token}')
+        me_done = client.get(ME_URL, HTTP_AUTHORIZATION=f'Bearer {token}').json()
+        assert me_done['is_onboarding_complete'] is True
+
+        resp = client.post(ONBOARDING_RESET_URL, HTTP_AUTHORIZATION=f'Bearer {token}')
+        assert resp.status_code == 200
+        me_again = client.get(ME_URL, HTTP_AUTHORIZATION=f'Bearer {token}').json()
+        assert me_again['is_onboarding_complete'] is False
 
 
 @pytest.mark.django_db

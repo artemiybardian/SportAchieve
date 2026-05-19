@@ -19,6 +19,6 @@ export default defineConfig({
     host: true,
     port: 5175,
     // Иначе Vite отдаёт 403 при запросе через https://*.ngrok-free.app
-    allowedHosts: ['.ngrok-free.app', '.ngrok.io', '.ngrok.app', '.ngrok.dev', 'localhost'],
+    allowedHosts: ['.ngrok-free.app', '.ngrok.io', '.ngrok.app', '.ngrok.dev', '.duckdns.org', 'localhost'],
   },
 });

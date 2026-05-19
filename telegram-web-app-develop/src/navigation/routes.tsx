@@ -4,8 +4,8 @@ import ExercisePage from "@/pages/ExercisePage.tsx";
 import UserProfilePage from "@/pages/UserProfilePage.tsx";
 import OnboardingPage, {OnboardingStep} from "@/components/ui/Onboarding/OnboardingPage.tsx";
 import {BigLogoIcon} from "@/components/ui/Icons";
-import onboardingImageTwo from "@/assets/onboarding-two.png";
-import onboardingImageThree from "@/assets/onboarding-three.png";
+import onboardingImageNfc from "@/assets/onboarding-nfc.png";
+import onboardingImageSubscriptions from "@/assets/onboarding-two.png";
 import LoginPage from "@/pages/LoginPage/LoginPage.tsx";
 import { useAppDispatch } from '@/store';
 import { completeOnboarding } from '@/store/slices/userSlice';
@@ -21,13 +21,13 @@ const onboardingSteps: OnboardingStep[] = [
     buttonText: "Далее",
   },
   {
-    icon: <img src={onboardingImageTwo} alt="" style={{ maxWidth: "260px", maxHeight: "240px", objectFit: "contain" }} />,
+    icon: <img src={onboardingImageNfc} alt="" style={{ maxWidth: "260px", maxHeight: "240px", objectFit: "contain" }} />,
     title: "Просто отсканируй стикер",
     description: "Поднеси телефон к NFC-стикеру на тренажере — приложение откроется автоматически",
     buttonText: "Далее",
   },
   {
-    icon: <img src={onboardingImageThree} alt="" style={{ maxWidth: "260px", maxHeight: "240px", objectFit: "contain" }} />,
+    icon: <img src={onboardingImageSubscriptions} alt="" style={{ maxWidth: "260px", maxHeight: "240px", objectFit: "contain" }} />,
     title: "Бесплатные и платные упражнения",
     description: "Базовые упражнения — бесплатно. Расширенная библиотека упражнений доступна по подписке",
     buttonText: "Начать тренировку",

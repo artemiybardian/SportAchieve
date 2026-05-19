@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { LastBrowsePathTracker } from '@/components/layout/LastBrowsePathTracker';
+import { OnboardingGate } from '@/components/layout/OnboardingGate';
 import { AppProviders } from '@/providers/AppProviders';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { GuestRoute } from '@/components/layout/GuestRoute';
@@ -31,10 +32,12 @@ function AppRoutes() {
         </Route>
 
         <Route element={<ProtectedRoute />}>
-          <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="/exercise/machine/:machineId?" element={<ExerciseMachinesPage />} />
-          <Route path="/exercise/:exerciseId/:instructionType?" element={<ExercisePage />} />
-          <Route path="/user" element={<UserProfilePage />} />
+          <Route element={<OnboardingGate />}>
+            <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/exercise/machine/:machineId?" element={<ExerciseMachinesPage />} />
+            <Route path="/exercise/:exerciseId/:instructionType?" element={<ExercisePage />} />
+            <Route path="/user" element={<UserProfilePage />} />
+          </Route>
         </Route>
 
         <Route path="*" element={<Navigate to="/exercise/machine" replace />} />

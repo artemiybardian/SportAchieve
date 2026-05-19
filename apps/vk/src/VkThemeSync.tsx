@@ -1,24 +1,21 @@
 import { useEffect } from 'react';
 import bridge from '@vkontakte/vk-bridge';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /**
- * Subscribes to VK Bridge config events and keeps the Tailwind `dark` class
- * on `<html>` in sync with the VK app colour scheme.
- *
- * Also syncs the CSS custom property for status-bar / safe-area overlay so
- * the existing `env(safe-area-inset-*)` rules in index.css keep working
- * inside the VK WebView.
+ * Держит Redux/theme state в соответствии со схемой клиента ВК, пока пользователь
+ * сам не переключил тему ({@link ThemeProvider} тогда перестаёт принимать события ВК).
  */
 export function VkThemeSync() {
+  const { applyVkClientScheme } = useTheme();
+
   useEffect(() => {
-    function applyScheme(scheme: string | undefined) {
+    if (!applyVkClientScheme) return;
+
+    const applyScheme = (scheme: string | undefined) => {
       const isDark = scheme === 'space_gray' || scheme === 'vkcom_dark';
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
+      applyVkClientScheme(isDark);
+    };
 
     const unsubscribe = bridge.subscribe((event) => {
       const { type, data } = event.detail;
@@ -27,17 +24,19 @@ export function VkThemeSync() {
       }
     });
 
-    // Apply the initial scheme.
-    bridge.send('VKWebAppGetConfig').then((config) => {
-      applyScheme((config as unknown as { scheme?: string }).scheme);
-    }).catch(() => {
-      // Ignore — some VK web clients don't support this call.
-    });
+    bridge
+      .send('VKWebAppGetConfig')
+      .then((config) => {
+        applyScheme((config as unknown as { scheme?: string }).scheme);
+      })
+      .catch(() => {
+        // Некоторые web-клиенты ВК не отвечают на этот вызов.
+      });
 
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [applyVkClientScheme]);
 
   return null;
 }

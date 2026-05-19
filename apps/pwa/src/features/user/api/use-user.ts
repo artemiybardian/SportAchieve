@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { OnboardingService, SubscriptionService } from '@/api/generated';
 import { AuthPwdService } from '@/features/auth/api/auth';
+import { OpenAPI } from '@/api/client';
+import { request } from '@/api/generated/core/request';
 import { queryKeys } from '@/lib/query-keys';
 import { useAppSelector } from '@/store';
 
@@ -10,7 +12,8 @@ export function useMe() {
     queryKey: queryKeys.user,
     queryFn: () => AuthPwdService.me(),
     enabled: isAuthenticated,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -34,6 +37,20 @@ export function useCompleteOnboarding() {
   });
 }
 
+export function useResetOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      request(OpenAPI, {
+        method: 'POST',
+        url: '/api/onboarding/reset',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.user });
+    },
+  });
+}
+
 export function useCancelSubscription() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -49,6 +66,7 @@ export function useUser() {
   const { data: subscription } = useSubscription();
 
   const fullName = me ? `${me.first_name} ${me.last_name}`.trim() || me.username : '';
+  const greetingName = me ? (me.first_name || '').trim() || fullName : '';
   const avatarUrl = me?.profile_photo ?? '';
 
   const daysLeft = (() => {
@@ -59,5 +77,5 @@ export function useUser() {
     return diff > 0 ? diff : 0;
   })();
 
-  return { me, subscription, isLoading, fullName, avatarUrl, daysLeft };
+  return { me, subscription, isLoading, fullName, greetingName, avatarUrl, daysLeft };
 }

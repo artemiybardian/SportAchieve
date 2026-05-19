@@ -40,7 +40,7 @@ export function ExerciseMachinesPage() {
 
   const [tab, setTab] = useState<TabId>(null);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
-  const { fullName, avatarUrl, subscription, daysLeft } = useUser();
+  const { greetingName, avatarUrl, subscription, daysLeft } = useUser();
 
   const instructionType = tab as ExerciseInstructionType | null;
   const { data: trainer, isLoading, error } = useTrainer(machineId ?? '', instructionType);
@@ -107,7 +107,7 @@ export function ExerciseMachinesPage() {
 
   return (
     <Page back={false}>
-      <Header name={fullName} avatarUrl={avatarUrl} daysLeft={daysLeft} hasSubscription={hasSubscription} />
+      <Header name={greetingName} avatarUrl={avatarUrl} daysLeft={daysLeft} hasSubscription={hasSubscription} />
 
       {/* Trainer info */}
       <div className="px-4 sm:px-5 py-5 space-y-3 w-full min-w-0">

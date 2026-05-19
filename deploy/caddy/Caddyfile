@@ -1,15 +1,29 @@
-# Публичный HTTPS-фронт для make prod (PWA + API в одном домене).
-# Переменные из compose: PUBLIC_DOMAIN, ACME_EMAIL (опционально, для Let's Encrypt).
+# Два публичных домена (PWA + VK Mini App), общий backend. Переменные: PUBLIC_DOMAIN, PUBLIC_DOMAIN_VK.
 
 {$PUBLIC_DOMAIN} {
     encode gzip zstd
 
-    @backend path /api* /admin* /files* /static* /media* /v1*
+    @backend path /api* /admin* /files* /static* /media* /v1* /editorjs*
     handle @backend {
         reverse_proxy backend_prod:8000
     }
 
     handle {
         reverse_proxy pwa_prod:80
+    }
+}
+
+{$PUBLIC_DOMAIN_VK} {
+    encode gzip zstd
+
+    header Content-Security-Policy "frame-ancestors 'self' https://vk.com https://*.vk.com https://vk.ru https://*.vk.ru https://*.vk-apps.com"
+
+    @backend path /api* /admin* /files* /static* /media* /v1* /editorjs*
+    handle @backend {
+        reverse_proxy backend_prod:8000
+    }
+
+    handle {
+        reverse_proxy vk_prod:80
     }
 }
