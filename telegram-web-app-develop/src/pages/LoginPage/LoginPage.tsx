@@ -54,7 +54,7 @@ export default function LoginPage() {
         return;
       }
 
-      if (machineId !== undefined && machineId !== null && machineId !== "") {
+      if (machineId) {
         navigate(`/exercise/machine/${machineId}`, { replace: true });
       } else {
         navigate('/exercise/machine', { replace: true });

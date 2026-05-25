@@ -202,7 +202,7 @@ class QRCodeAdmin(admin.ModelAdmin):
                 telegram_bot_username = os.environ.get("TELEGRAM_BOT_USERNAME", "")
                 qr_data = (
                     f"https://t.me/{telegram_bot_username}?startapp="
-                    f"equipment_{obj.trainer_id}-gym_{obj.location_id}"
+                    f"equipment_{obj.trainer.uuid}-gym_{obj.location_id}"
                 )
 
             qr = qrcode.QRCode(

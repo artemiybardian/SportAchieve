@@ -33,14 +33,14 @@ export class TrainersService {
      * @throws ApiError
      */
     public static apiViewsGetTrainer(
-        trainerId: number,
+        trainerId: string,
         instructionType?: (ExerciseInstructionType | null),
     ): CancelablePromise<TrainerSchema> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/trainers/{trainer_id}',
+            url: '/api/trainers/{trainer_uuid}',
             path: {
-                'trainer_id': trainerId,
+                'trainer_uuid': trainerId,
             },
             query: {
                 'instruction_type': instructionType,

@@ -53,6 +53,7 @@ class UserService:
 			vk_id=vk_user_id,
 			defaults={
 				"username": f"vk_{vk_user_id}",
+				"email": None,
 				"last_login": now(),
 				"source": SourceType.VK,
 				"is_onboarding_complete": False,
@@ -71,6 +72,7 @@ class UserService:
 			max_id=max_user_id,
 			defaults={
 				"username": f"max_{max_user_id}",
+				"email": None,
 				"first_name": max_user.get("first_name", ""),
 				"last_name": max_user.get("last_name", ""),
 				"profile_photo": max_user.get("photo_url") or None,
@@ -113,27 +115,33 @@ class UserService:
 			user.save(update_fields=update_fields)
 
 	def save_if_not_exist(self, user: TelegramUserDict) -> User:
-		username = user.get("username") or f"user_{user['id']}"
-		
-		db_user, created = User.objects.get_or_create(
-			username=username,
-			defaults={
-				"id": user["id"],
-				"username": user["username"],
-				"first_name": user.get("first_name", ""),
-				"last_name": user.get("last_name", ""),
-				"profile_photo": user.get("photo_url", None),
-				"last_login": now(),
-				"source": SourceType.TELEGRAM,
-				"is_onboarding_complete": False,
-			}
-		)
+		telegram_id = user["id"]
+		username = user.get("username") or f"user_{telegram_id}"
+
+		try:
+			db_user = User.objects.get(id=telegram_id)
+			created = False
+		except User.DoesNotExist:
+			db_user, created = User.objects.get_or_create(
+				username=username,
+				defaults={
+					"id": telegram_id,
+					"username": username,
+					"email": None,
+					"first_name": user.get("first_name", ""),
+					"last_name": user.get("last_name", ""),
+					"profile_photo": user.get("photo_url", None),
+					"last_login": now(),
+					"source": SourceType.TELEGRAM,
+					"is_onboarding_complete": False,
+				}
+			)
 		if created:
 			self.logger.debug(f"User created from telegram ({user})")
 		else:
 			db_user.last_login = now()
-			db_user.save()
-		
+			db_user.save(update_fields=["last_login"])
+
 		return db_user
 
 	def apply_vk_bridge_profile(

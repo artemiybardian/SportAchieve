@@ -344,7 +344,10 @@ def list_trainers(request, instruction_type: Optional[ExerciseInstructionType] =
 # Без auth: по QR с телефона открывают до логина — карточка тренажёра должна быть публичной
 @api.get("/trainers/{trainer_uuid}", response={200: TrainerSchema, 404: MessageResponse}, tags=["Trainers"])
 def get_trainer(request, trainer_uuid: str, instruction_type: Optional[ExerciseInstructionType] = None):
-	trainer = TrainerModel.objects.filter(uuid=trainer_uuid).first()
+	if trainer_uuid.isdigit():
+		trainer = TrainerModel.objects.filter(pk=int(trainer_uuid)).first()
+	else:
+		trainer = TrainerModel.objects.filter(uuid=trainer_uuid).first()
 	if not trainer:
 		return 404, MessageResponse(message=UM.TRAINER_NOT_FOUND)
 

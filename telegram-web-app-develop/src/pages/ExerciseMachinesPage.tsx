@@ -13,43 +13,23 @@ import {useNavigate, useParams} from "react-router-dom";
 import { AnalyticsLogger } from "@/services/AnalyticsLogger";
 
 interface ExerciseMachinesProps {
-    machineId?: number;
+    machineId?: string;
 }
 
 export default function ExerciseMachinesPage({ machineId }: ExerciseMachinesProps) {
-
-
-    function getMachineIdFromParams(): number | null {
-        const { machineId } = useParams();
-        console.debug("getMachineIdFromParams. machineIdFromParams:", machineId)
-        if (machineId) {
-            return parseInt(machineId);
-        }
-        return null;
-    }
-
-    function getMachineId(): number {
-        const machineIdFromParams = getMachineIdFromParams()
-        console.debug("getMachineId. machineIdFromParams:", machineIdFromParams)
-        if (machineIdFromParams) {
-            return machineIdFromParams;
-        } else if (machineId) {
-            return machineId;
-        } else {
-            return 0; // сигнал: нужно загрузить список и взять первый
-        }
-    }
+    const { machineId: machineIdFromParams } = useParams<{ machineId?: string }>();
+    const resolvedMachineId = machineIdFromParams ?? machineId ?? "";
 
     return (
         <Page back={false}>
             <DrawerProvider>
-                <ExerciseMachinesContent id={getMachineId()}/>
+                <ExerciseMachinesContent machineId={resolvedMachineId}/>
             </DrawerProvider>
         </Page>
     )
 }
 
-function ExerciseMachinesContent({ id }: { id: number }) {
+function ExerciseMachinesContent({ machineId }: { machineId: string }) {
 
     const navigate = useNavigate();
     const { openDrawer, pushView } = useDrawer();
@@ -58,27 +38,17 @@ function ExerciseMachinesContent({ id }: { id: number }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isTabLoading, setIsTabLoading] = useState(false);
     const [currentTab, setCurrentTab] = useState<string | null>(null);
-    const [resolvedId, setResolvedId] = useState<number>(id);
 
-    // Если id=0 (нет startParam и нет параметра в URL) — берём первый тренажёр из списка
     useEffect(() => {
-        if (id === 0) {
-            TrainersService.apiViewsListTrainers()
-                .then(list => {
-                    if (list && list.length > 0) {
-                        const firstId = list[0].id;
-                        setResolvedId(firstId);
-                        navigate(`/exercise/machine/${firstId}`, { replace: true });
-                    }
-                })
-                .catch(err => {
-                    console.error("Failed to fetch trainers list:", err);
-                    setIsLoading(false);
-                });
+        if (!machineId) {
+            setIsLoading(false);
+            return;
         }
-    }, [id]);
+        void AnalyticsLogger.logGymView(0);
+        loadTrainerData(machineId);
+    }, [machineId]);
 
-    function loadTrainerData(trainerId: number, instructionType?: (ExerciseInstructionType | null)) {
+    function loadTrainerData(trainerId: string, instructionType?: (ExerciseInstructionType | null)) {
         console.debug("Loading trainer data for trainerId:", trainerId, "with instructionType:", instructionType);
         if (!trainer) {
             setIsLoading(true);
@@ -98,12 +68,6 @@ function ExerciseMachinesContent({ id }: { id: number }) {
                 setIsTabLoading(false);
             });
     }
-
-    useEffect(() => {
-        if (resolvedId === 0) return; // ждём resolvedId от списка
-        void AnalyticsLogger.logGymView(resolvedId);
-        loadTrainerData(resolvedId);
-    }, [resolvedId]);
 
     const openSubscriptionDrawer = () => {
         openDrawer({
@@ -149,14 +113,23 @@ function ExerciseMachinesContent({ id }: { id: number }) {
     };
 
     const loadExercises = (tab: ExerciseTabProps) => {
+        if (!machineId) return;
         if (tab.id === "M") {
-            loadTrainerData(id, ExerciseInstructionType.M)
+            loadTrainerData(machineId, ExerciseInstructionType.M)
         } else if (tab.id === "F") {
-            loadTrainerData(id, ExerciseInstructionType.F)
+            loadTrainerData(machineId, ExerciseInstructionType.F)
         } else {
-            loadTrainerData(id, null)
+            loadTrainerData(machineId, null)
         }
         setCurrentTab(tab.id)
+    }
+
+    if (!machineId) {
+        return (
+            <div style={{width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center'}}>
+                <div>Отсканируйте QR-код на тренажёре</div>
+            </div>
+        );
     }
 
     if (isLoading) {
@@ -165,7 +138,7 @@ function ExerciseMachinesContent({ id }: { id: number }) {
 
     if (!trainer) {
         return <div style={{width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-            <div style={{ color: 'var(--tg-theme-destructive-text-color)' }}>Тренажер на найден</div>
+            <div style={{ color: 'var(--tg-theme-destructive-text-color)' }}>Тренажёр не найден</div>
         </div>;
     }
 

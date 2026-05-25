@@ -1,4 +1,4 @@
-.PHONY: help dev dev-d prod prod-nginx prod-caddy prod-vk-nginx prod-dns prod-twa down stop-pwa stop-vk stop-max start-pwa start-vk start-max logs ngrok ngrok-backend ngrok-pwa ngrok-vk ngrok-vk-dev ngrok-vk-local ngrok-vk-prod vk-ngrok-hint ngrok-max ngrok-max-dev ngrok-max-prod yookassa-webhook-url pwa-dev pwa-build vk-dev vk-build max-dev max-build seed seed-clear
+.PHONY: help dev dev-d prod prod-nginx prod-caddy prod-vk-nginx prod-dns prod-twa down stop-pwa stop-vk stop-twa stop-max start-pwa start-vk start-twa start-max logs ngrok ngrok-backend ngrok-pwa ngrok-vk ngrok-vk-dev ngrok-vk-local ngrok-vk-prod vk-ngrok-hint ngrok-max ngrok-max-dev ngrok-max-prod ngrok-twa yookassa-webhook-url pwa-dev pwa-build vk-dev vk-build max-dev max-build seed seed-clear
 
 SHELL := /bin/bash
 
@@ -15,13 +15,17 @@ VK_DOCKER_PORT := 3162
 MAX_DEV_PORT := 5176
 # Docker: max_prod (nginx со статикой + /api → backend_prod)
 MAX_DOCKER_PORT := 3163
+# Docker: TWA prod (nginx + /api → backend_prod)
+TWA_DOCKER_PORT := 3181
+# Vite dev TWA (telegram-web-app-develop); см. make dev
+TWA_DEV_PORT := 3173
 GATEWAY_PORT := 9190
 
 help:
 	@echo "Команды:"
 	@echo "  make dev                   — профиль dev: postgres, redis, backend, vite, celery (передний план)"
 	@echo "  make dev-d                 — то же в фоне (-d)"
-	@echo "  make prod / make prod-nginx — prod: backend :8160 + PWA :3160 + VK :3162 (без TMA/gateway; HTTPS — system nginx, deploy/nginx-host/)"
+	@echo "  make prod / make prod-nginx — prod: backend :8160 + PWA :3160 + VK :3162 + TWA :3181 (без gateway; HTTPS — system nginx, deploy/nginx-host/)"
 	@echo "  make prod-caddy            — то же + Caddy :80,:443 (PUBLIC_DOMAIN + PUBLIC_DOMAIN_VK в .env)"
 	@echo "  make prod-vk-nginx         — только backend + VK :3162 (без PWA)"
 	@echo "  make prod-dns              — prod-caddy + DuckDNS (DUCKDNS_TOKEN, DUCKDNS_SUBDOMAINS)"
@@ -59,20 +63,20 @@ dev:
 dev-d:
 	$(COMPOSE) --profile dev up --build -d
 
-# Backend + PWA + VK (без Telegram TMA и без gateway). На VPS: nginx vhost-ы из deploy/nginx-host/ + certbot.
+# Backend + PWA + VK + TWA (без gateway). На VPS: nginx vhost-ы из deploy/nginx-host/ + certbot.
 prod prod-nginx:
-	$(COMPOSE) --profile prod up --build -d --scale frontend_prod=0 --scale gateway=0
+	$(COMPOSE) --profile prod up --build -d --scale gateway=0
 
-# То же, но TLS в Docker (Caddy: два домена в deploy/caddy/Caddyfile).
+# То же, но TLS в Docker (Caddy: домены в deploy/caddy/Caddyfile).
 prod-caddy:
-	$(COMPOSE) --profile prod --profile caddy up --build -d --scale frontend_prod=0 --scale gateway=0
+	$(COMPOSE) --profile prod --profile caddy up --build -d --scale gateway=0
 
 # Только VK + backend (без контейнера PWA).
 prod-vk-nginx:
 	$(COMPOSE) --profile prod up --build -d --scale frontend_prod=0 --scale gateway=0 --scale pwa_prod=0
 
 prod-dns:
-	$(COMPOSE) --profile prod --profile caddy --profile duckdns up --build -d --scale frontend_prod=0 --scale gateway=0
+	$(COMPOSE) --profile prod --profile caddy --profile duckdns up --build -d --scale gateway=0
 
 # TMA + PWA + VK + gateway :9190
 prod-twa:
