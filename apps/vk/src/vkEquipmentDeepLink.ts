@@ -18,7 +18,7 @@ export function parseVkEquipmentDeepLink(raw: string): VkEquipmentDeepLink | nul
   };
 }
 
-/** 24 hex — символы из HMAC в `vk.com/app…#token` (стабильный QR). */
+/** 24 hex — символы из HMAC в `vk.com/app…#token` или `app…_-group#token`. */
 export function extractStaticVkQrToken(raw: string): string | null {
   if (!raw) return null;
   const withHash = raw.match(/#([a-f0-9]{24})\b/i);

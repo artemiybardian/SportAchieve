@@ -221,6 +221,8 @@ PWA_BASE_URL = ENV("PWA_BASE_URL")
 VK_APP_ID = ENV("VK_APP_ID", "")
 VK_CLIENT_SECRET = ENV("VK_CLIENT_SECRET", "")
 VK_APP_BASE_URL = ENV("VK_APP_BASE_URL", "")
+# Числовой ID сообщества для QR: vk.com/app{APP_ID}_-{GROUP_ID}#token (make vk-group-id)
+VK_GROUP_ID = ENV("VK_GROUP_ID", "")
 
 # MAX Mini App
 MAX_BOT_TOKEN = ENV("MAX_BOT_TOKEN", "")

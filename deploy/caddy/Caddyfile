@@ -27,3 +27,18 @@
         reverse_proxy vk_prod:80
     }
 }
+
+{$PUBLIC_DOMAIN_MAX} {
+    encode gzip zstd
+
+    header Content-Security-Policy "frame-ancestors 'self' https://max.ru https://*.max.ru"
+
+    @backend path /api* /admin* /files* /static* /media* /v1* /editorjs*
+    handle @backend {
+        reverse_proxy backend_prod:8000
+    }
+
+    handle {
+        reverse_proxy max_prod:80
+    }
+}

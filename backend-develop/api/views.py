@@ -110,7 +110,7 @@ class JWTAuthorization(HttpBearer):
 	tags=["Public"],
 )
 def resolve_vk_qr_by_token(request, token: str):
-	"""Разбор статичного фрагмента из QR `vk.com/app…#token` (HMAC от uuid тренажёра и id зала)."""
+	"""Разбор статичного фрагмента из QR `vk.com/app…#token` или `app…_-group#token`."""
 	row = lookup_vk_qr_trainer_gym(token)
 	if row is None:
 		return 404, MessageResponse(message=UM.VK_QR_UNKNOWN)

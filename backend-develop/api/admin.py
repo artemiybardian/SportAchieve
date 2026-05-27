@@ -187,10 +187,11 @@ class QRCodeAdmin(admin.ModelAdmin):
             elif obj.source == SourceType.VK:
                 # Клиент ВК + статичный токен в hash: не меняется, пока те же uuid тренажёра и зал.
                 # Разбор на бэкенде: GET /api/public/vk-qr/{token}
-                from api.vk_qr_token import compute_vk_qr_token
+                from api.vk_qr_token import build_vk_app_open_url, compute_vk_qr_token
                 vk_app_id = getattr(django_settings, 'VK_APP_ID', '') or os.environ.get('VK_APP_ID', '')
+                vk_group_id = getattr(django_settings, 'VK_GROUP_ID', '') or os.environ.get('VK_GROUP_ID', '')
                 vk_token = compute_vk_qr_token(str(tid), int(loc_id))
-                qr_data = f"https://vk.com/app{vk_app_id}#{vk_token}"
+                qr_data = build_vk_app_open_url(vk_app_id, vk_token, vk_group_id or None)
             elif obj.source == SourceType.MAX:
                 # MAX Mini App: глубокая ссылка со статичным токеном в start_param.
                 # Разбор на бэкенде: GET /api/public/max-qr/{token}

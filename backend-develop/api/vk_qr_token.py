@@ -16,6 +16,14 @@ def compute_vk_qr_token(trainer_uuid: str, gym_id: int) -> str:
 	return hmac.new(key, msg, hashlib.sha256).hexdigest()[:TOKEN_HEX_LEN]
 
 
+def build_vk_app_open_url(app_id: str | int, token: str, group_id: str | int | None = None) -> str:
+	"""Ссылка для QR: app{id} или app{id}_-{group} + #токен тренажёра."""
+	base = f"https://vk.com/app{app_id}"
+	if group_id:
+		base += f"_-{int(group_id)}"
+	return f"{base}#{token}"
+
+
 def lookup_vk_qr_trainer_gym(token: str) -> tuple[str, int] | None:
 	if not token or len(token) != TOKEN_HEX_LEN:
 		return None

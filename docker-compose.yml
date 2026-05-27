@@ -1,6 +1,6 @@
 # SportAchieve — монорепо. Запуск:
 #   make dev    →  backend :8160 + PWA :3160 + TWA :3173 + VK :3162 + postgres + redis + celery
-#   make prod   →  backend :8160 + PWA :3160 + TWA :3181 + VK :3162 (без gateway; HTTPS — deploy/nginx-host/)
+#   make prod   →  backend :8160 + PWA :3160 + TWA :3181 + VK :3162 + MAX :3163 (без gateway; HTTPS — deploy/nginx-host/)
 #   make prod-caddy → то же + Caddy на :80/:443 (PUBLIC_DOMAIN + PUBLIC_DOMAIN_VK в .env)
 #   make prod-twa →  то же + gateway :9190 (единый URL для Telegram BotFather)
 #
@@ -328,6 +328,7 @@ services:
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-sportachieve.duckdns.org}
       PUBLIC_DOMAIN_VK: ${PUBLIC_DOMAIN_VK:-sportachieve-vk.duckdns.org}
+      PUBLIC_DOMAIN_MAX: ${PUBLIC_DOMAIN_MAX:-sportachieve-max.duckdns.org}
     volumes:
       - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -338,6 +339,8 @@ services:
       pwa_prod:
         condition: service_healthy
       vk_prod:
+        condition: service_healthy
+      max_prod:
         condition: service_healthy
     networks: [sportachieve]
 
@@ -423,27 +426,26 @@ services:
         condition: service_healthy
     networks: [sportachieve]
 
-  # MAX Mini App — временно отключено
-  # max:
-  #   profiles: [dev]
-  #   build:
-  #     context: .
-  #     dockerfile: deploy/max/Dockerfile
-  #     args:
-  #       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8160}
-  #       VITE_MAX_APP_BASE_URL: ${MAX_APP_BASE_URL:-}
-  #   ports:
-  #     - "3163:80"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 4
-  #     start_period: 10s
-  #   depends_on:
-  #     backend:
-  #       condition: service_healthy
-  #   networks: [sportachieve]
+  max:
+    profiles: [dev]
+    build:
+      context: .
+      dockerfile: deploy/max/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://127.0.0.1:8160}
+        VITE_MAX_APP_BASE_URL: ${MAX_APP_BASE_URL:-}
+    ports:
+      - "3163:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [sportachieve]
 
   vk_prod:
     profiles: [prod]
@@ -466,27 +468,26 @@ services:
         condition: service_healthy
     networks: [sportachieve]
 
-  # MAX Mini App — временно отключено
-  # max_prod:
-  #   profiles: [prod]
-  #   build:
-  #     context: .
-  #     dockerfile: deploy/max/Dockerfile
-  #     args:
-  #       VITE_API_BASE_URL: ""
-  #       VITE_MAX_APP_BASE_URL: ${MAX_APP_BASE_URL:-}
-  #   ports:
-  #     - "3163:80"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 4
-  #     start_period: 10s
-  #   depends_on:
-  #     backend_prod:
-  #       condition: service_healthy
-  #   networks: [sportachieve]
+  max_prod:
+    profiles: [prod]
+    build:
+      context: .
+      dockerfile: deploy/max/Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_MAX_APP_BASE_URL: ${MAX_APP_BASE_URL:-}
+    ports:
+      - "3163:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    depends_on:
+      backend_prod:
+        condition: service_healthy
+    networks: [sportachieve]
 
   pwa_prod:
     profiles: [prod]

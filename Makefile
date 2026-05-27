@@ -1,4 +1,4 @@
-.PHONY: help dev dev-d prod prod-nginx prod-caddy prod-vk-nginx prod-dns prod-twa down stop-pwa stop-vk stop-twa stop-max start-pwa start-vk start-twa start-max logs ngrok ngrok-backend ngrok-pwa ngrok-vk ngrok-vk-dev ngrok-vk-local ngrok-vk-prod vk-ngrok-hint ngrok-max ngrok-max-dev ngrok-max-prod ngrok-twa yookassa-webhook-url pwa-dev pwa-build vk-dev vk-build max-dev max-build seed seed-clear
+.PHONY: help dev dev-d prod prod-nginx prod-caddy prod-vk-nginx prod-dns prod-twa down stop-pwa stop-vk stop-twa stop-max start-pwa start-vk start-twa start-max logs ngrok ngrok-backend ngrok-pwa ngrok-vk ngrok-vk-dev ngrok-vk-local ngrok-vk-prod vk-ngrok-hint vk-group-id ngrok-max ngrok-max-dev ngrok-max-prod ngrok-twa yookassa-webhook-url pwa-dev pwa-build vk-dev vk-build max-dev max-build seed seed-clear
 
 SHELL := /bin/bash
 
@@ -25,7 +25,7 @@ help:
 	@echo "Команды:"
 	@echo "  make dev                   — профиль dev: postgres, redis, backend, vite, celery (передний план)"
 	@echo "  make dev-d                 — то же в фоне (-d)"
-	@echo "  make prod / make prod-nginx — prod: backend :8160 + PWA :3160 + VK :3162 + TWA :3181 (без gateway; HTTPS — system nginx, deploy/nginx-host/)"
+	@echo "  make prod / make prod-nginx — prod: backend :8160 + PWA :3160 + VK :3162 + MAX :3163 + TWA :3181 (без gateway; HTTPS — system nginx, deploy/nginx-host/)"
 	@echo "  make prod-caddy            — то же + Caddy :80,:443 (PUBLIC_DOMAIN + PUBLIC_DOMAIN_VK в .env)"
 	@echo "  make prod-vk-nginx         — только backend + VK :3162 (без PWA)"
 	@echo "  make prod-dns              — prod-caddy + DuckDNS (DUCKDNS_TOKEN, DUCKDNS_SUBDOMAINS)"
@@ -44,6 +44,7 @@ help:
 	@echo "  make ngrok-vk-local        — два туннеля (Vite :$(VK_DEV_PORT) + API :$(API_PORT))"
 	@echo "  make ngrok-vk-prod         — туннель на vk_prod (:$(VK_DOCKER_PORT))"
 	@echo "  make vk-ngrok-hint         — подсказки .env / VK (ngrok :4040)"
+	@echo "  make vk-group-id           — ID сообщества VK (GROUP=…, нужен VK_COMMUNITY_ACCESS_TOKEN)"
 	@echo "  make ngrok-max             — то же, что ngrok-max-prod (алиас)"
 	@echo "  make ngrok-max-dev         — туннель на Vite MAX (:$(MAX_DEV_PORT))"
 	@echo "  make ngrok-max-prod        — туннель на max_prod (:$(MAX_DOCKER_PORT))"
@@ -143,6 +144,10 @@ ngrok-max-dev:
 
 vk-ngrok-hint:
 	@VK_DEV_PORT='$(VK_DEV_PORT)' API_DEV_PORT='$(API_PORT)' VK_PROD_PORT='$(VK_DOCKER_PORT)' python3 scripts/vk-ngrok-hint.py
+
+# GROUP — short name, club123 или URL (по умолчанию sportachieve)
+vk-group-id:
+	@python3 scripts/vk-group-id.py --env-file backend-develop/.env $(GROUP)
 
 ngrok-twa:
 	ngrok http $(GATEWAY_PORT)
